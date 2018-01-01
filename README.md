@@ -22,34 +22,36 @@ La arquitectura debe garantizar la escalabilidad de la aplicación, permitiendo 
 
 ## Puesta en marcha del escenario
 
+La última versión del escenario está disponible en el siguiente [enlace](https://github.com/tasiomendez/cdps/releases).
+
 1. **Si utiliza ordenador propio con VirtualBox**
 
-  * Descargue la máquina virtual a su ordenador desde este [enlace](http://idefix.dit.upm.es/cdps/CDPS2017-v1.ova), e impórtela a VirtualBox y arranquela.
+    * Descargue la máquina virtual a su ordenador desde este [enlace](http://idefix.dit.upm.es/cdps/CDPS2017-v1.ova), e impórtela a VirtualBox y arranquela.
 
-  * Accede a un terminal de la máquina virtual y descargue y descomprima el escenario.
+    * Accede a un terminal de la máquina virtual y descargue y descomprima el escenario.
+      ```shell
+      wget https://github.com/tasiomendez/cdps/releases/download/0.0.1/pfinal-with-rootfs.tgz
+      sudo vnx --unpack pfinal-with-rootfs.tgz && cd pfinal-with-rootfs
+      bin/prepare-pfinal-vm
+      ```
+
+2. **Si utiliza ordenador propio con Linux y VNX**, accede a un terminal del PC y descargue el escenario y descomprímalo mediante:
+
     ```shell
     wget https://github.com/tasiomendez/cdps/releases/download/0.0.1/pfinal-with-rootfs.tgz
     sudo vnx --unpack pfinal-with-rootfs.tgz && cd pfinal-with-rootfs
     bin/prepare-pfinal-vm
     ```
 
-2. **Si utiliza ordenador propio con Linux y VNX**, accede a un terminal del PC y descargue el escenario y descomprímalo mediante:
-
-  ```shell
-  wget https://github.com/tasiomendez/cdps/releases/download/0.0.1/pfinal-with-rootfs.tgz
-  sudo vnx --unpack pfinal-with-rootfs.tgz && cd pfinal-with-rootfs
-  bin/prepare-pfinal-vm
-  ```
-
 3. **Si utiliza el laboratorio**, entre en su cuenta, acceda a un terminal, descargue el escenario y descomprímalo.
 
-  ```shell
-  wget https://github.com/tasiomendez/cdps/releases/download/0.0.1/pfinal-with-rootfs.tgz
-  sudo vnx --unpack pfinal-with-rootfs.tgz && cd pfinal-with-rootfs
-  bin/prepare-pfinal-labo
-  ```
+    ```shell
+    wget https://github.com/tasiomendez/cdps/releases/download/0.0.1/pfinal-with-rootfs.tgz
+    sudo vnx --unpack pfinal-with-rootfs.tgz && cd pfinal-with-rootfs
+    bin/prepare-pfinal-labo
+    ```
 
-  > Por restricciones de espacio en el laboratorio es necesario trabajar en el directorio /mnt/tmp.
+    > Por restricciones de espacio en el laboratorio es necesario trabajar en el directorio /mnt/tmp.
 
 Finalmente, para todas las opciones, copie el script de configuración en la carpeta `pfinal` que se ha creado al montar el escenario y ejecute el script como:
 
