@@ -34,16 +34,23 @@ def main():
 	parser = argparse.ArgumentParser(description='Configuracion automatica del despliegue de un sistema CRM escalable')
 
 	parser.add_argument('FILE', help='VNX File para crear el escenario')
-	parser.add_argument('-n', '--no-console', help='Arrancar el escenario sin mostrar las consolas', action='store_false')
+	parser.add_argument('-n', '--no-console', help='arrancar el escenario sin mostrar las consolas', action='store_false')
+
+	group = parser.add_mutually_exclusive_group(required=True)
+	group.add_argument('-c', '--create', help='crea y arranca el escenario', action='store_true')
+	group.add_argument('-d', '--destroy', help='destruye el escenario y todos los cambios relizados', action='store_true')
 
 	args = parser.parse_args()
 
-	with timer('Escenario desplegado'):
-		create(args.FILE, args.no_console)
-		bbdd()
-		storage()
-		crm()
-		load_balancer()
+	if args.create:
+		with timer('Escenario desplegado'):
+			create(args.FILE, args.no_console)
+			bbdd()
+			storage()
+			crm()
+			load_balancer()
+	elif args.destroy:
+		destroy(args.FILE)
 
 	print('')
 
@@ -55,6 +62,12 @@ def create(file, console):
 	else:
 		call('sudo vnx -f {file} --create --no-console'.format(file=file), shell=True, stdout=devnull)
 	logger.info('Escenario creado.')
+
+
+def destroy(file):
+	logger.info('Destruyendo escenario...')
+	call('sudo vnx -f {file} --destroy'.format(file=file), shell=True, stdout=devnull)
+	logger.info('Escenario destruido.')
 
 
 def firewall():
