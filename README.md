@@ -28,24 +28,24 @@ La arquitectura debe garantizar la escalabilidad de la aplicación, permitiendo 
 
   * Accede a un terminal de la máquina virtual y descargue y descomprima el escenario.
     ```shell
-    wget http://idefix.dit.upm.es/cdps/pfinal/pfinal.tgz
-    sudo vnx --unpack pfinal.tgz && cd pfinal
+    wget https://github.com/tasiomendez/cdps/releases/download/0.0.1/pfinal-with-rootfs.tgz
+    sudo vnx --unpack pfinal-with-rootfs.tgz && cd pfinal-with-rootfs
     bin/prepare-pfinal-vm
     ```
 
 2. **Si utiliza ordenador propio con Linux y VNX**, accede a un terminal del PC y descargue el escenario y descomprímalo mediante:
 
   ```shell
-  wget http://idefix.dit.upm.es/cdps/pfinal/pfinal.tgz
-  sudo vnx --unpack pfinal.tgz && cd pfinal
+  wget https://github.com/tasiomendez/cdps/releases/download/0.0.1/pfinal-with-rootfs.tgz
+  sudo vnx --unpack pfinal-with-rootfs.tgz && cd pfinal-with-rootfs
   bin/prepare-pfinal-vm
   ```
 
 3. **Si utiliza el laboratorio**, entre en su cuenta, acceda a un terminal, descargue el escenario y descomprímalo.
 
   ```shell
-  wget http://idefix.dit.upm.es/cdps/pfinal/pfinal.tgz
-  sudo vnx --unpack pfinal.tgz && cd pfinal
+  wget https://github.com/tasiomendez/cdps/releases/download/0.0.1/pfinal-with-rootfs.tgz
+  sudo vnx --unpack pfinal-with-rootfs.tgz && cd pfinal-with-rootfs
   bin/prepare-pfinal-labo
   ```
 
