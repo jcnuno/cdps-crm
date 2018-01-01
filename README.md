@@ -86,9 +86,9 @@ A continuación, tenemos una breve explicación de las opciones disponibles.
 | Opción | Descripción |
 | -- | -- | 
 | `FILE` | Archivo que contiene toda la arquitectura del despliegue. Es un archivo XML que se encuentra dentro del escenario. |
-| `--create` | Crea el escenario y realiza toda la configuración |
-| `--destroy` | Elimina el escenario y con ellos, todos los cambios realizados |
-| `--no-console` | Se usa con `--create`. Al arrancar el escenario no se muestran las consolas de todas las máquinas virtuales |
+| `--create` | Crea el escenario y realiza toda la configuración. |
+| `--destroy` | Elimina el escenario y con ellos, todos los cambios realizados. |
+| `--no-console` | Se usa con `--create`. Al arrancar el escenario no se muestran las consolas de todas las máquinas virtuales. Opcional. |
 
 ## Autores
 
