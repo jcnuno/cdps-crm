@@ -29,7 +29,7 @@ La arquitectura debe garantizar la escalabilidad de la aplicación, permitiendo 
 
 En el proyecto se utilizarán los elementos típicos de las arquitecturas actuales: firewall, balanceador de carga, servidores font-end corriendo la aplicación, bases de datos y servidores de almacenamiento, tal y como aparece representado en la siguiente figura.
 
-![stage](stage.png)
+![stage](docs/stage.png)
 
 La solución que se ha implementado proporciona una **alta disponibilidad**, y es fácilmente **escalable**.
 
