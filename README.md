@@ -79,7 +79,7 @@ La última versión del escenario está disponible en el siguiente [enlace](http
 
 El script de configuración te permite automatizar el despliegue del CRM con todos los equipos configurados y listos para usarse. Para ello, una vez que hemos descargado el escenario y lo tenemos todo preparado ejecutamos el script de la siguiente forma:
 
-```python config.py FILE (--create | --destroy) [--no-console]```
+```python config.py FILE [--create] [--destroy] [--no-console]```
 
 A continuación, tenemos una breve explicación de las opciones disponibles.
 

@@ -15,6 +15,7 @@ y servidores de almacenamiento.
 import argparse
 import logging
 import os
+import sys
 from subprocess import call
 from contextlib import contextmanager
 from time import time, sleep
@@ -36,28 +37,20 @@ def main():
 	parser.add_argument('FILE', help='VNX File para crear el escenario')
 	parser.add_argument('-n', '--no-console', help='arrancar el escenario sin mostrar las consolas', action='store_false')
 
-	group = parser.add_mutually_exclusive_group(required=True)
-	group.add_argument('-c', '--create', help='crea y arranca el escenario', action='store_true')
-	group.add_argument('-d', '--destroy', help='destruye el escenario y todos los cambios relizados', action='store_true')
+	parser.add_argument('-c', '--create', help='crea y arranca el escenario', action='store_true')
+	parser.add_argument('-d', '--destroy', help='destruye el escenario y todos los cambios relizados', action='store_true')
 
 	args = parser.parse_args()
 
 	if not os.path.exists(args.FILE):
 		logger.error('El archivo seleccionado no existe o esta en otro directorio')
-		return
+		sys.exit()
 
 	with timer('Accion terminada'):
 		if args.create:
-			create(args.FILE, args.no_console)
-			bbdd()
-			storage()
-			crm()
-			load_balancer()
-			firewall()
+			create(args.FILE, args.no_console)	
 		elif args.destroy:
 			destroy(args.FILE)
-
-	print('')
 
 
 def create(file, console):
@@ -75,6 +68,12 @@ def create(file, console):
 	else:
 		call('sudo vnx -f {file} --create --no-console'.format(file=file), shell=True, stdout=devnull)
 	logger.info('Escenario creado.')
+
+	bbdd()				# Creamos la base de datos
+	storage()			# Creamos el GlusterFS
+	crm()				# Desplegamos la aplicacion
+	load_balancer()		# Configuramos el balancedor
+	firewall()			# Configuramos el cortafuegos
 
 
 def destroy(file):
@@ -214,7 +213,8 @@ def timer(name='task', function=logger.info):
     start = time()
     yield start
     end = time()
-    function('{} en {} segundos'.format(name, end - start))	
+    function('{} en {} segundos'.format(name, end - start))
+    print('')
 
 
 if __name__ == '__main__':
