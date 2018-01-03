@@ -25,7 +25,7 @@ logger = logging.getLogger('CDPS')
 N_SERVERS_DEFAULT = 3
 N_SERVERS_CLUSTER_DEFAULT = 3
 
-DATABASE_URL = 'postgres://crm:xxxx@10.1.4.31:5432/crm'
+POSTGRES_URL = 'postgres://crm:xxxx@10.1.4.31:5432/crm'
 
 devnull = open(os.devnull, 'w')
 
@@ -42,20 +42,33 @@ def main():
 
 	args = parser.parse_args()
 
-	if args.create:
-		with timer('Escenario desplegado'):
+	if not os.path.exists(args.FILE):
+		logger.error('El archivo seleccionado no existe o esta en otro directorio')
+		return
+
+	with timer('Accion terminada'):
+		if args.create:
 			create(args.FILE, args.no_console)
 			bbdd()
 			storage()
 			crm()
 			load_balancer()
-	elif args.destroy:
-		destroy(args.FILE)
+			firewall()
+		elif args.destroy:
+			destroy(args.FILE)
 
 	print('')
 
 
 def create(file, console):
+	'''
+	Creacion del escenario.
+
+	Args:
+		file 		VNX File.
+		console 	booleano que indica si se muestran las consolas o no.
+
+	'''
 	logger.info('Creando escenario...')
 	if console:
 		call('sudo vnx -f {file} --create'.format(file=file), shell=True, stdout=devnull)
@@ -65,6 +78,13 @@ def create(file, console):
 
 
 def destroy(file):
+	'''
+	Destruccion del escenario completo.
+
+	Args:
+		file 		VNX File.
+
+	'''
 	logger.info('Destruyendo escenario...')
 	call('sudo vnx -f {file} --destroy'.format(file=file), shell=True, stdout=devnull)
 	logger.info('Escenario destruido.')
@@ -78,7 +98,7 @@ def firewall():
 	Cualquier otro trafico debe de estar prohibido.
 	'''
 	logger.info('Configurando firewall...')
-	call('sudo lxc-attach --clear-env -n fw -- < ./fw.fw', shell=True)
+	call('sudo lxc-attach --clear-env -n fw -- /root/fw.fw', shell=True)
 	logger.info('Firewall configurado.')
 
 
@@ -122,7 +142,7 @@ def storage():
 	cmd_line = 'gluster volume create nas replica {n}'.format(n=N_SERVERS_CLUSTER_DEFAULT)
 
 	for i in range(1, N_SERVERS_CLUSTER_DEFAULT + 1):
-		call('{lxc} -- bash -c "gluster peer probe 10.1.4.2{n}"'.format(lxc=lxc, n=str(i)), shell=True)
+		call('{lxc} -- bash -c "gluster peer probe 10.1.4.2{n}"'.format(lxc=lxc, n=str(i)), shell=True, stdout=devnull)
 
 		cmd_line += ' 10.1.4.2{n}:/nas'.format(n=str(i))
 		sleep(0.5)
@@ -132,12 +152,12 @@ def storage():
 
 	cmd_line = 'gluster volume set nas network.ping-timeout 5'
 	for i in range(1, N_SERVERS_CLUSTER_DEFAULT + 1):
-		call('sudo lxc-attach --clear-env -n nas{n} -- bash -c "{cmd_line}"'.format(n=str(i), cmd_line=cmd_line), shell=True)
+		call('sudo lxc-attach --clear-env -n nas{n} -- bash -c "{cmd_line}"'.format(n=str(i), cmd_line=cmd_line), shell=True, stdout=devnull)
 
 	# Configuracion del cluster desde los servidores web
 	for i in range(1, N_SERVERS_DEFAULT + 1):
 		lxc = 'sudo lxc-attach --clear-env -n s{n}'.format(n=str(i))
-		call('{lxc} -- bash -c "mkdir /mnt/nas"'.format(lxc=lxc), shell=True)
+		call('{lxc} -- bash -c "mkdir /mnt/nas"'.format(lxc=lxc), shell=True, stdout=devnull)
 		call('{lxc} -- bash -c "mount -t glusterfs 10.1.4.21:/nas /mnt/nas"'.format(lxc=lxc), shell=True)
 
 	logger.info('GlusterFS configurado.')
@@ -152,7 +172,7 @@ def crm():
 	logger.info('Instalacion del CRM')
 
 	for i in range(1, N_SERVERS_DEFAULT + 1):
-		lxc = 'sudo lxc-attach --clear-env -n s{n} --set-var DATABASE_URL={url}'.format(n=str(i), url=DATABASE_URL)
+		lxc = 'sudo lxc-attach --clear-env -n s{n} --set-var DATABASE_URL={url}'.format(n=str(i), url=POSTGRES_URL)
 
 		call('{lxc} -- bash -c "cd /root; git clone https://github.com/CORE-UPM/CRM_2017.git"'.format(lxc=lxc), shell=True, stdout=devnull)
 		call('{lxc} -- bash -c "cd /root/CRM_2017; npm install; npm install forever"'.format(lxc=lxc), shell=True, stdout=devnull, stderr=devnull)
@@ -161,8 +181,6 @@ def crm():
 		if (i == 1):
 			call('{lxc} -- bash -c "cd /root/CRM_2017; npm run-script migrate_local; npm run-script seed_local"'.format(lxc=lxc), shell=True)
 
-		logger.info('\t CRM instalado en s{}.'.format(str(i)))
-
 		# Redirigimos las imagenes al cluster
 		if (i == 1):
 			call('{lxc} -- bash -c "mkdir /mnt/nas/uploads"'.format(lxc=lxc), shell=True)
@@ -170,6 +188,8 @@ def crm():
 		
 		# Arrancamos la aplicacion
 		call('{lxc} -- bash -c "cd /root/CRM_2017; ./node_modules/forever/bin/forever start ./bin/www"'.format(lxc=lxc), shell=True)
+
+		logger.info('\t CRM instalado en s{}.'.format(str(i)))
 
 	logger.info('CRM instalado satisfactoriamente.')
 
