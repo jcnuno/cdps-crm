@@ -35,10 +35,13 @@ def main():
 	parser = argparse.ArgumentParser(description='Configuracion automatica del despliegue de un sistema CRM escalable')
 
 	parser.add_argument('FILE', help='VNX File para crear el escenario')
-	parser.add_argument('-n', '--no-console', help='arrancar el escenario sin mostrar las consolas', action='store_false')
 
 	parser.add_argument('-c', '--create', help='crea y arranca el escenario', action='store_true')
 	parser.add_argument('-d', '--destroy', help='destruye el escenario y todos los cambios relizados', action='store_true')
+
+	parser.add_argument('--no-console', help='arrancar el escenario sin mostrar las consolas', action='store_false')
+
+	parser.add_argument('--add-server', help='anade un servidor web al escenario', action='store_true')
 
 	args = parser.parse_args()
 
