@@ -16,7 +16,7 @@ import argparse
 import logging
 import os
 import sys
-from subprocess import call
+from subprocess import call, check_output
 from contextlib import contextmanager
 from time import time, sleep
 
@@ -50,10 +50,18 @@ def main():
 		sys.exit()
 
 	with timer('Accion terminada'):
-		if args.create:
-			create(args.FILE, args.no_console)	
-		elif args.destroy:
+		if args.create:			# Creamos el escenario inicial
+			create(args.FILE, args.no_console)
+			#bbdd()					# Creamos la base de datos
+			gestion()				# Configuramos el servidor de gestion
+			#storage()				# Creamos el GlusterFS
+			#crm()					# Desplegamos la aplicacion
+			load_balancer()			# Configuramos el balancedor
+			#firewall()				# Configuramos el cortafuegos
+		elif args.destroy:		# Destruimos todo el escenario
 			destroy(args.FILE)
+
+	print('')
 
 
 def create(file, console):
@@ -72,12 +80,6 @@ def create(file, console):
 		call('sudo vnx -f {file} --create --no-console'.format(file=file), shell=True, stdout=devnull)
 	logger.info('Escenario creado.')
 
-	bbdd()				# Creamos la base de datos
-	storage()			# Creamos el GlusterFS
-	crm()				# Desplegamos la aplicacion
-	load_balancer()		# Configuramos el balancedor
-	firewall()			# Configuramos el cortafuegos
-
 
 def destroy(file):
 	'''
@@ -89,6 +91,7 @@ def destroy(file):
 	'''
 	logger.info('Destruyendo escenario...')
 	call('sudo vnx -f {file} --destroy'.format(file=file), shell=True, stdout=devnull)
+	call('rm ~/.ssh/ges_rsa*', shell=True)
 	logger.info('Escenario destruido.')
 
 
@@ -100,7 +103,7 @@ def firewall():
 	Cualquier otro trafico debe de estar prohibido.
 	'''
 	logger.info('Configurando firewall...')
-	call('sudo lxc-attach --clear-env -n fw -- /root/fw.fw', shell=True)
+	call('sudo lxc-attach --clear-env -n fw -- /root/fw.fw', shell=True, stdout=devnull)
 	logger.info('Firewall configurado.')
 
 
@@ -208,7 +211,24 @@ def load_balancer():
 
 	cmd_line += ' --web-interface 0:8001 &'
 
-	call(cmd_line, shell=True)
+	call(cmd_line, shell=True, stdout=devnull)
+
+
+def gestion():
+	'''
+	Configuracion del servidor de gestion. No se permite conectarse
+	por ssh con contrasena, solo con clave rsa.
+	'''
+	call('ssh-keygen -t rsa -N "" -f "/home/$USER/.ssh/ges_rsa"', shell=True, stdout=devnull)
+	logger.info('Se han generado un nuevo par de claves para conectarse al servidor de gestion.')
+	logger.info('Las puedes encontrar en ~/.ssh/ges_rsa.')
+
+	key = check_output('cat /home/$USER/.ssh/ges_rsa.pub', shell=True)
+
+	lxc = 'sudo lxc-attach --clear-env -n ges'
+	call('{lxc} -- bash -c "echo \'{key}\' >> /root/.ssh/authorized_keys"'.format(lxc=lxc, key=key), shell=True)
+	call('{lxc} -- sed -i "s/#PasswordAuthentication yes/PasswordAuthentication no/" /etc/ssh/sshd_config'.format(lxc=lxc), shell=True)
+	call('{lxc} -- service ssh restart'.format(lxc=lxc), shell=True)
 
 
 @contextmanager
@@ -217,7 +237,6 @@ def timer(name='task', function=logger.info):
     yield start
     end = time()
     function('{} en {} segundos'.format(name, end - start))
-    print('')
 
 
 if __name__ == '__main__':
