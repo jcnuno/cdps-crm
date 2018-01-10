@@ -16,6 +16,7 @@ import argparse
 import logging
 import os
 import sys
+import json
 from subprocess import call, check_output
 from contextlib import contextmanager
 from time import time, sleep
@@ -28,7 +29,17 @@ N_SERVERS_CLUSTER_DEFAULT = 3
 
 POSTGRES_URL = 'postgres://crm:xxxx@10.1.4.31:5432/crm'
 
+NAGIOS_VERSION = '4.3.4'
+NAGIOS_PLUGINS_VERSION = '2.2.1'
+NRPE_VERSION = '3.2.1'
+
 devnull = open(os.devnull, 'w')
+
+path = os.path.abspath(__file__).split('/')
+path.pop()
+path = '/'.join(path)
+
+NAGIOS_HOSTS = json.load(open(path + '/nagios.json'))
 
 
 def main():
@@ -58,6 +69,7 @@ def main():
 			#crm()					# Desplegamos la aplicacion
 			load_balancer()			# Configuramos el balancedor
 			#firewall()				# Configuramos el cortafuegos
+			nagios()				# Configuramos Nagios
 		elif args.destroy:		# Destruimos todo el escenario
 			destroy(args.FILE)
 
@@ -91,6 +103,7 @@ def destroy(file):
 	'''
 	logger.info('Destruyendo escenario...')
 	call('sudo vnx -f {file} --destroy'.format(file=file), shell=True, stdout=devnull)
+	call('ssh-add -d ~/.ssh/ges_rsa', shell=True)
 	call('rm ~/.ssh/ges_rsa*', shell=True)
 	logger.info('Escenario destruido.')
 
@@ -214,6 +227,24 @@ def load_balancer():
 	call(cmd_line, shell=True, stdout=devnull)
 
 
+def nagios():
+	'''
+	Configuracion del servidor nagios que monitoriza el resto de 
+	servidores
+	'''
+
+	logger.info('Configuracion de Nagios')
+
+	# Install and configure nagios on nagios server
+	call('sudo lxc-attach --clear-env -n nagios -- /root/nagios_server.sh {nagios} {nrpe}'.format(nagios=NAGIOS_VERSION, nrpe=NRPE_VERSION), shell=True, stdout=devnull)
+
+	# Install nrpe on hosts
+	for i in range(len(NAGIOS_HOSTS)):
+		call('sudo lxc-attach --clear-env -n {host} -- /root/nagios_server.sh {nagios_plugins} {nrpe}'.format(host=NAGIOS_HOSTS[i]['name'], nagios_plugins=NAGIOS_PLUGINS_VERSION, nrpe=NRPE_VERSION), shell=True, stdout=devnull)
+	
+	logger.info('Nagios configurado.')
+
+
 def gestion():
 	'''
 	Configuracion del servidor de gestion. No se permite conectarse
@@ -229,6 +260,8 @@ def gestion():
 	call('{lxc} -- bash -c "echo \'{key}\' >> /root/.ssh/authorized_keys"'.format(lxc=lxc, key=key), shell=True)
 	call('{lxc} -- sed -i "s/#PasswordAuthentication yes/PasswordAuthentication no/" /etc/ssh/sshd_config'.format(lxc=lxc), shell=True)
 	call('{lxc} -- service ssh restart'.format(lxc=lxc), shell=True)
+
+	call('ssh-add ~/.ssh/ges_rsa', shell=True)
 
 
 @contextmanager

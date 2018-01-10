@@ -1,0 +1,43 @@
+[
+	{
+		"name": "s1",
+		"ip": "10.1.5.11",
+		"description": "Servidor S1"
+	},{
+		"name": "s2",
+		"ip": "10.1.5.12",
+		"description": "Servidor S2"
+	},{
+		"name": "s3",
+		"ip": "10.1.5.13",
+		"description": "Servidor S3"
+	},{
+		"name": "nas1",
+		"ip": "10.1.5.21",
+		"description": "Servidor de almacenamiento nas1"
+	},{
+		"name": "nas2",
+		"ip": "10.1.5.22",
+		"description": "Servidor de almacenamiento nas2"
+	},{
+		"name": "nas3",
+		"ip": "10.1.5.23",
+		"description": "Servidor de almacenamiento nas3"
+	},{
+		"name": "bbdd",
+		"ip": "10.1.5.31",
+		"description": "Servidor de Base de Datos"
+	},{
+		"name": "lb",
+		"ip": "10.1.5.2",
+		"description": "Balanceador de trafico"
+	},{
+		"name": "fw",
+		"ip": "10.1.5.1",
+		"description": "Firewall"
+	},{
+		"name": "ges",
+		"ip": "10.1.5.51",
+		"description": "Servidor de gestion"
+	}
+]
