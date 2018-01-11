@@ -33,7 +33,7 @@ En el proyecto se utilizarán los elementos típicos de las arquitecturas actual
 
 ![architecture](docs/architecture.png)
 
-La solución que se ha implementado proporciona una **alta disponibilidad**, y es fácilmente **escalable**.
+La solución que se ha implementado proporciona una **alta disponibilidad**, y es fácilmente **escalable**. 
 
 * **FW**, es un cortafuegos y únicamente permite el acceso mediante ping y al puerto 80 de TCP de la dirección del balanceador de tráfico. Tambien permite el acceso a la direccion web de Nagios para monitorizar todo el sistema y el acceso por ssh al servidor de gestion. El resto de tráfico está bloqueado.
 * **LB**, es el balanceador de carga *Crossroads* que balancea el tráfico entre los servidores utilizando el algoritmo round-robin.
@@ -45,6 +45,8 @@ Además del escenario original, podemos encontrar una nueva **red de gestión**,
 
 * **GES**, servidor de gestión al cual nos podemos conectar mediante ssh desde fuera del firewall. Unicamente nos podemos conectar utilizando una clave RSA, el acceso por contraseña queda bloqueado.
 * **NAGIOS**, servidor que corre [Nagios](https://www.nagios.org/), una herramienta de monitorización *open source* que permite monitorizar los equipos y sus servicios de forma remota con un navegador web. La direccion web para conectarmos al servidor es `10.1.5.52/nagios`. El usuario y contraseña que se establecen por defecto son `nagiosadmin` y `xxxx`.
+
+Con el script de configuración que está descrito más abajo, se pueden añadir tantos servidores como uno quiera, haciéndose las configuraciones necesarias en cada uno de ellos, lo que hace que el sistema sea fácilmente escalable en función de la carga que tengan que soportar los servidores.
 
 ## Uso
 

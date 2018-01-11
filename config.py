@@ -79,6 +79,9 @@ def main():
 			if tree.find('global/scenario_name').text == 'cdps_pfinal':
 				logger.error('El archivo pasado como parametro es el escenario principal.')
 				sys.exit()
+			if len(tree.findall('vm')) > 1:
+				logger.error('Los servidores tienen que ser anadidos de uno en uno.')
+				sys.exit()
 			add_server(
 				tree.find('vm').attrib['name'],
 				tree.find('vm/if[@net="LAN3"]/ipv4').text.split('/')[0],
@@ -104,6 +107,13 @@ def create(file, console):
 		call('sudo vnx -f {file} --create'.format(file=file), shell=True, stdout=devnull)
 	else:
 		call('sudo vnx -f {file} --create --no-console'.format(file=file), shell=True, stdout=devnull)
+
+	logger.info('Waiting for Virtual Machines to turn on.')
+	print_progress(0, 30, prefix='Progress:', suffix='Complete', bar_length=30)
+	for i in range(30):
+		sleep(1)
+		print_progress(i + 1, 30, prefix='Progress:', suffix='Complete', bar_length=30)
+
 	logger.info('Escenario creado.')
 
 
