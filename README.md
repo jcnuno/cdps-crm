@@ -48,6 +48,8 @@ Además del escenario original, podemos encontrar una nueva **red de gestión**,
 
 Con el script de configuración que está descrito más abajo, se pueden añadir tantos servidores como uno quiera, haciéndose las configuraciones necesarias en cada uno de ellos, lo que hace que el sistema sea fácilmente escalable en función de la carga que tengan que soportar los servidores.
 
+> Con el fin de poder ver el balanceo de tráfico, está habilitado el acceso al puerto 8001 del balanceador. En un escenario real, esta regla tendría que ser eliminada.
+
 ## Uso
 
 ### Descarga y preparación del escenario
