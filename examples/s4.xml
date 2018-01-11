@@ -31,6 +31,7 @@ SPAIN
 
   <net name="LAN3" mode="virtual_bridge" managed="no"/>  
   <net name="LAN4" mode="virtual_bridge" managed="no"/>
+  <net name="LAN5" mode="virtual_bridge" managed="no"/>
   <net name="virbr0" mode="virtual_bridge" managed="no"/>
 
   <vm name="s4" type="lxc" arch="x86_64">
