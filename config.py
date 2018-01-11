@@ -70,7 +70,7 @@ def main():
 			storage()				# Creamos el GlusterFS
 			crm()					# Desplegamos la aplicacion
 			load_balancer()			# Configuramos el balancedor
-			#firewall()				# Configuramos el cortafuegos
+			firewall()				# Configuramos el cortafuegos
 			nagios()				# Configuramos Nagios
 		elif args.destroy:		# Destruimos todo el escenario
 			destroy(args.FILE)
