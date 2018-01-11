@@ -259,8 +259,11 @@ def nagios():
 		thread.daemon = True 						# Daemonize thread
 		thread.start() 								# Start the execution
 
+	logger.info('Instalando plugin nrpe en los hosts...')
+	print_progress(0, len(threads), prefix='Progress:', suffix='Complete', bar_length=30)
 	for thread in threads:
 		thread.join()								# Wait to finish
+		print_progress(threads.index(thread) + 1, len(threads), prefix='Progress:', suffix='Complete', bar_length=30)
 
 	# Connecting hosts to Nagios
 	for i in range(len(NAGIOS_HOSTS)):
@@ -287,14 +290,14 @@ def installNRPE(name):
 		host=name, 
 		nagios_plugins=NAGIOS_PLUGINS_VERSION, 
 		nrpe=NRPE_VERSION
-	), shell=True, stdout=devnull)
+	), shell=True, stdout=devnull, stderr=devnull)
 
 	cmd_line = [
 		'sed -i "s+-r -w .15,.10,.05 -c .30,.25,.20+-r -w .85,.75,.65 -c .95,.85,.75+" /usr/local/nagios/etc/nrpe.cfg',
 		'sudo systemctl restart nrpe.service'
 	]
 	for line in range(len(cmd_line)):
-		call('sudo lxc-attach --clear-env -n {host} -- {cmd}'.format(host=name, cmd=cmd_line[line]), shell=True)
+		call('sudo lxc-attach --clear-env -n {host} -- {cmd}'.format(host=name, cmd=cmd_line[line]), shell=True, stdout=devnull, stderr=devnull)
 
 
 def gestion():
@@ -314,8 +317,6 @@ def gestion():
 	call('{lxc} -- sed -i "s/#PasswordAuthentication yes/PasswordAuthentication no/" /etc/ssh/sshd_config'.format(lxc=lxc), shell=True)
 	call('{lxc} -- service ssh restart'.format(lxc=lxc), shell=True)
 
-	# call('ssh-add ~/.ssh/ges_rsa', shell=True) -> DOCUMENTAR
-
 
 def add_server(name, lb_ip, nagios_ip, console, file):
 	'''
@@ -330,8 +331,11 @@ def add_server(name, lb_ip, nagios_ip, console, file):
 	else:
 		call('sudo vnx -f {file} --create --no-console'.format(file=file), shell=True, stdout=devnull)
 
-	logger.info('Waiting to Virtual Machine to turn on.')
-	sleep(30)
+	logger.info('Waiting for Virtual Machine to turn on.')
+	print_progress(0, 30, prefix='Progress:', suffix='Complete', bar_length=30)
+	for i in range(30):
+		sleep(1)
+		print_progress(i + 1, 30, prefix='Progress:', suffix='Complete', bar_length=30)
 
 	# Configuramos la aplicacion
 	lxc = 'sudo lxc-attach --clear-env -n {name} --set-var DATABASE_URL={url}'.format(name=name, url=POSTGRES_URL)
@@ -366,6 +370,7 @@ def add_server(name, lb_ip, nagios_ip, console, file):
 	logger.info('Balanceador actualizado.')
 
 	# Reconfiguramos Nagios para monitorizar el nuevo servidor
+	logger.info('Actualizando Nagios...')
 	installNRPE(name)
 
 	cmd_line = [
@@ -388,6 +393,29 @@ def timer(name='task', function=logger.info):
     yield start
     end = time()
     function('{} en {} segundos'.format(name, end - start))
+
+
+def print_progress(iteration, total, prefix='', suffix='', decimals=1, bar_length=100):
+    """
+    Call in a loop to create terminal progress bar
+    @params:
+        iteration   - Required  : current iteration (Int)
+        total       - Required  : total iterations (Int)
+        prefix      - Optional  : prefix string (Str)
+        suffix      - Optional  : suffix string (Str)
+        decimals    - Optional  : positive number of decimals in percent complete (Int)
+        bar_length  - Optional  : character length of bar (Int)
+    """
+    str_format = "{0:." + str(decimals) + "f}"
+    percents = str_format.format(100 * (iteration / float(total)))
+    filled_length = int(round(bar_length * iteration / float(total)))
+    bar = '=' * filled_length + '>' + '-' * (bar_length - filled_length - 1)
+
+    sys.stdout.write('\r%s |%s| %s%s %s' % (prefix, bar, percents, '%', suffix)),
+
+    if iteration == total:
+        sys.stdout.write('\n')
+    sys.stdout.flush()
 
 
 if __name__ == '__main__':

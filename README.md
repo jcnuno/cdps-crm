@@ -11,6 +11,8 @@ La aplicación CRM la podemos encontrar en el siguiente [enlace](https://github.
 * [Uso](#uso)
   * [Descarga y preparación del escenario](#descarga-y-preparación-del-escenario)
   * [Script de configuración](#script-de-configuración)
+  * [Añadir un servidor](#añadir-un-servidor)
+  * [Conexion con el servidor de gestion](#conexion-con-el-servidor-de-gestion)
 * [Autores](#autores)
 
 ## Descripción
@@ -33,11 +35,16 @@ En el proyecto se utilizarán los elementos típicos de las arquitecturas actual
 
 La solución que se ha implementado proporciona una **alta disponibilidad**, y es fácilmente **escalable**.
 
-* **FW**, es un cortafuegos y únicamente permite el acceso mediante ping y al puerto 80 de TCP de la dirección del balanceador de tráfico. El resto de tráfico está bloqueado.
+* **FW**, es un cortafuegos y únicamente permite el acceso mediante ping y al puerto 80 de TCP de la dirección del balanceador de tráfico. Tambien permite el acceso a la direccion web de Nagios para monitorizar todo el sistema y el acceso por ssh al servidor de gestion. El resto de tráfico está bloqueado.
 * **LB**, es el balanceador de carga *Crossroads* que balancea el tráfico entre los servidores utilizando el algoritmo round-robin.
 * **S1, S2 y S3**, es el servicio en que se aloja la aplicación web CRM. Esta está alojada en el puerto 3000, y es el balanceador de carga el que se encarga de hacer un mapeo del puerto 80 al 3000.
 * **BBDD**, es el servicio en que se aloja la base de datos, y utiliza la imagen de Postgres para ello. Para la conexión de la base de datos, utilizamos la siguiente URL, `postgres://crm:xxxx@10.1.4.31:5432/crm`.
 * **NAS**, son los servidores de almacenamiento. La información está replicada entre los tres servidores, de forma que se puede leer y escribir en cualquiera de ellos.
+
+Ademas del escenario original, podemos encontrar una nueva **red de gestion**, desde la cual se puede gestionar y monitorizar todo el sistema.
+
+* **GES**, servidor de gestion al cual nos podemos conectar mediante ssh desde fuera del firewall. Unicamente nos podemos conectar utilizando una clave RSA, el acceso por contraseña queda bloqueado.
+* **NAGIOS**, servidor que corre [Nagios](https://www.nagios.org/), una herramienta de monitorización *open source* que permite monitorizar los equipos y sus servicios de forma remota con un navegador web. La direccion web para conectarmos al servidor es `10.1.5.52/nagios`. El usuario y contraseña que se establecen por defecto son `nagiosadmin` y `xxxx`.
 
 ## Uso
 
@@ -52,7 +59,7 @@ La última versión del escenario está disponible en el siguiente [enlace](http
     * Accede a un terminal de la máquina virtual y descargue y descomprima el escenario.
 
     ```shell
-    wget https://github.com/tasiomendez/cdps-crm/releases/download/0.0.1/pfinal.tgz
+    wget https://github.com/tasiomendez/cdps-crm/releases/download/v0.0.2/pfinal.tgz
     sudo vnx --unpack pfinal.tgz && cd pfinal
     bin/prepare-pfinal-vm
     ```
@@ -60,7 +67,7 @@ La última versión del escenario está disponible en el siguiente [enlace](http
 2. **Si utiliza ordenador propio con Linux y VNX**, accede a un terminal del PC y descargue el escenario y descomprímalo mediante:
 
     ```shell
-    wget https://github.com/tasiomendez/cdps-crm/releases/download/0.0.1/pfinal.tgz
+    wget https://github.com/tasiomendez/cdps-crm/releases/download/v0.0.2/pfinal.tgz
     sudo vnx --unpack pfinal.tgz && cd pfinal
     bin/prepare-pfinal-vm
     ```
@@ -68,7 +75,7 @@ La última versión del escenario está disponible en el siguiente [enlace](http
 3. **Si utiliza el laboratorio**, entre en su cuenta, acceda a un terminal, descargue el escenario y descomprímalo.
 
     ```shell
-    wget https://github.com/tasiomendez/cdps-crm/releases/download/0.0.1/pfinal.tgz
+    wget https://github.com/tasiomendez/cdps-crm/releases/download/v0.0.2/pfinal.tgz
     sudo vnx --unpack pfinal.tgz && cd pfinal
     bin/prepare-pfinal-labo
     ```
@@ -79,16 +86,42 @@ La última versión del escenario está disponible en el siguiente [enlace](http
 
 El script de configuración te permite automatizar el despliegue del CRM con todos los equipos configurados y listos para usarse. Para ello, una vez que hemos descargado el escenario y lo tenemos todo preparado ejecutamos el script de la siguiente forma:
 
-```python config.py FILE [--create] [--destroy] [--no-console]```
+```python config.py FILE [--create | --destroy | --add-server] [--no-console]```
 
 A continuación, tenemos una breve explicación de las opciones disponibles.
 
-| Opción | Descripción |
-| -- | -- | 
-| `FILE` | Archivo que contiene toda la arquitectura del despliegue. Es un archivo XML que se encuentra dentro del escenario. |
-| `--create` | Crea el escenario y realiza toda la configuración. |
-| `--destroy` | Elimina el escenario y con ellos, todos los cambios realizados. |
-| `--no-console` | Se usa con `--create`. Al arrancar el escenario no se muestran las consolas de todas las máquinas virtuales. Opcional. |
+* `FILE`. Archivo que contiene toda la arquitectura del despliegue. Es un archivo XML que se encuentra dentro del escenario.
+* `--create`. Crea el escenario y realiza toda la configuración.
+* `--destroy`. Elimina el escenario y con ellos, todos los cambios realizados.
+* `--add-server`. Añade un servidor extra donde alojar la aplicacion y ejecuta todos los cambios necesarios.
+* `--no-console`. Se puede usar con `--create` o `--add-server`. Al arrancar el escenario no se muestran las consolas de todas las máquinas virtuales. Opcional.
+
+### Añadir un servidor
+
+Para añadir un servidor, tenemos que declarar un archivo de tipo XML como el que podemos encontrar en la carpeta [examples](examples). Tenemos que conectarlos a la LAN3, la LAN4 y a la LAN5 para la monitorizacion, asi como crearla con los archivos necesarios para la instalacion de Nagios.
+
+### Conexion con el servidor de gestion
+
+Para conectarnos con el servidor de gestion tenemos que utilizar la clave que genera el script con el nombre `ges_rsa`. En el caso de existir una clave RSA con ese mismo nombre en la carpeta `~/.ssh/`, el script de configuracion pasara a utilizar dicha clave.
+
+Una vez que tenemos localizada la clave nos podemos conectar directamente al servidor haciendo:
+
+```shell
+ssh root@ges
+```
+
+En el caso de que se nos deniegue el acceso podemos proceder a indicarle el archivo donde se aloja la clave:
+
+```shell
+ssh root@ges -i ~/.ssh/ges_rsa
+```
+
+Si esto ultimo nos da error, entonces se debe a que la clave no es conocida por el `ssh-agent`. En este caso para solucionar el problema ejecutamos los siguientes comandos:
+
+```shell
+ssh-add ~/.ssh/ges_rsa
+ssh root@ges
+```
 
 ## Autores
 
