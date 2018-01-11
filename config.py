@@ -76,12 +76,16 @@ def main():
 			destroy(args.FILE)
 		elif args.add_server:	# Anadimos un nuevo servidor
 			tree = ElementTree.parse(args.FILE)
-
+			if tree.find('global/scenario_name').text == 'cdps_pfinal':
+				logger.error('El archivo pasado como parametro es el escenario principal.')
+				sys.exit()
 			add_server(
 				tree.find('vm').attrib['name'],
 				tree.find('vm/if[@net="LAN3"]/ipv4').text.split('/')[0],
-				tree.find('vm/if[@net="LAN5"]/ipv4').text.split('/')[0]
-			)		
+				tree.find('vm/if[@net="LAN5"]/ipv4').text.split('/')[0],
+				args.no_console,
+				args.FILE
+			)
 
 	print('')
 
@@ -285,6 +289,13 @@ def installNRPE(name):
 		nrpe=NRPE_VERSION
 	), shell=True, stdout=devnull)
 
+	cmd_line = [
+		'sed -i "s+-r -w .15,.10,.05 -c .30,.25,.20+-r -w .85,.75,.65 -c .95,.85,.75+" /usr/local/nagios/etc/nrpe.cfg',
+		'sudo systemctl restart nrpe.service'
+	]
+	for line in range(len(cmd_line)):
+		call('sudo lxc-attach --clear-env -n {host} -- {cmd}'.format(host=name, cmd=cmd_line[line]), shell=True)
+
 
 def gestion():
 	'''
@@ -306,15 +317,66 @@ def gestion():
 	# call('ssh-add ~/.ssh/ges_rsa', shell=True) -> DOCUMENTAR
 
 
-def add_server(name, lb_ip, nagios_ip):
+def add_server(name, lb_ip, nagios_ip, console, file):
 	'''
 	Anadir un servidor para alojar la aplicacion.
 	- Se configura el servidor (aplicacion y gluster).
 	- Se arranca de nuevo el balanceador de trafico para anadir el servidor.
 	- Se anade Nagios al nuevo servidor.
 	'''
-	pass
 
+	if console:
+		call('sudo vnx -f {file} --create'.format(file=file), shell=True, stdout=devnull)
+	else:
+		call('sudo vnx -f {file} --create --no-console'.format(file=file), shell=True, stdout=devnull)
+
+	# Configuramos la aplicacion
+	lxc = 'sudo lxc-attach --clear-env -n {name} --set-var DATABASE_URL={url}'.format(name=name, url=POSTGRES_URL)
+
+	call('{lxc} -- bash -c "cd /root; git clone https://github.com/CORE-UPM/CRM_2017.git"'.format(lxc=lxc), shell=True, stdout=devnull)
+	call('{lxc} -- bash -c "cd /root/CRM_2017; npm install; npm install forever"'.format(lxc=lxc), shell=True, stdout=devnull, stderr=devnull)
+	
+	# Arrancamos la aplicacion
+	call('{lxc} -- bash -c "cd /root/CRM_2017; ./node_modules/forever/bin/forever start ./bin/www"'.format(lxc=lxc), shell=True)
+
+	logger.info('CRM instalado en .'.format(name))
+
+	# Montamos el gluster
+	call('{lxc} -- bash -c "mkdir /mnt/nas"'.format(lxc=lxc), shell=True, stdout=devnull)
+	call('{lxc} -- bash -c "mount -t glusterfs 10.1.4.21:/nas /mnt/nas"'.format(lxc=lxc), shell=True)
+	call('{lxc} -- bash -c "ln -s /mnt/nas/uploads /root/CRM_2017/public/uploads"'.format(lxc=lxc), shell=True)
+
+	logger.info('Sistema de archivos compartidos montado.')
+
+	# Arrancamos el balanceador de nuevo
+	call('sudo lxc-attach --clear-env -n lb -- killall xr', shell=True)
+	cmd_line = 'sudo lxc-attach --clear-env -n lb -- xr --server tcp:0:80 -dr'
+
+	for i in range(1, N_SERVERS_DEFAULT + 1):
+		cmd_line += ' --backend 10.1.3.1{n}:3000'.format(n=str(i))
+
+	cmd_line += ' --backend {ip}:3000'.format(ip=lb_ip)
+	cmd_line += ' --web-interface 0:8001 &'
+
+	call(cmd_line, shell=True, stdout=devnull)
+
+	logger.info('Balanceador actualizado.')
+
+	# Reconfiguramos Nagios para monitorizar el nuevo servidor
+	installNRPE(name)
+
+	cmd_line = [
+		'cp /root/default_config/default_remote.cfg /usr/local/nagios/etc/servers/{name}.cfg'.format(name=name),
+		'sed -i "s/remote_name_machine/{name}/g" /usr/local/nagios/etc/servers/{name}.cfg'.format(name=name),
+		'sed -i "s/remote_description/Servidor {description}/g" /usr/local/nagios/etc/servers/{name}.cfg'.format(name=name, description=name),
+		'sed -i "s/remote_ip_address/{ip}/g" /usr/local/nagios/etc/servers/{name}.cfg'.format(name=name, ip=nagios_ip)
+	]
+	for line in range(len(cmd_line)):
+		call('sudo lxc-attach --clear-env -n nagios -- {cmd}'.format(cmd=cmd_line[line]), shell=True)
+
+	call('sudo lxc-attach --clear-env -n nagios -- sudo systemctl restart nagios', shell=True)
+
+	logger.info('Nagios actualizado.')
 
 
 @contextmanager
