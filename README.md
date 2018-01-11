@@ -12,7 +12,7 @@ La aplicación CRM la podemos encontrar en el siguiente [enlace](https://github.
   * [Descarga y preparación del escenario](#descarga-y-preparación-del-escenario)
   * [Script de configuración](#script-de-configuración)
   * [Añadir un servidor](#añadir-un-servidor)
-  * [Conexion con el servidor de gestion](#conexion-con-el-servidor-de-gestion)
+  * [Conexión con el servidor de gestion](#conexion-con-el-servidor-de-gestion)
 * [Autores](#autores)
 
 ## Descripción
@@ -31,7 +31,7 @@ La arquitectura debe garantizar la escalabilidad de la aplicación, permitiendo 
 
 En el proyecto se utilizarán los elementos típicos de las arquitecturas actuales: firewall, balanceador de carga, servidores font-end corriendo la aplicación, bases de datos y servidores de almacenamiento, tal y como aparece representado en la siguiente figura.
 
-![stage](docs/stage.png)
+![architecture](docs/architecture.png)
 
 La solución que se ha implementado proporciona una **alta disponibilidad**, y es fácilmente **escalable**.
 
@@ -41,9 +41,9 @@ La solución que se ha implementado proporciona una **alta disponibilidad**, y e
 * **BBDD**, es el servicio en que se aloja la base de datos, y utiliza la imagen de Postgres para ello. Para la conexión de la base de datos, utilizamos la siguiente URL, `postgres://crm:xxxx@10.1.4.31:5432/crm`.
 * **NAS**, son los servidores de almacenamiento. La información está replicada entre los tres servidores, de forma que se puede leer y escribir en cualquiera de ellos.
 
-Ademas del escenario original, podemos encontrar una nueva **red de gestion**, desde la cual se puede gestionar y monitorizar todo el sistema.
+Además del escenario original, podemos encontrar una nueva **red de gestión**, desde la cual se puede gestionar y monitorizar todo el sistema.
 
-* **GES**, servidor de gestion al cual nos podemos conectar mediante ssh desde fuera del firewall. Unicamente nos podemos conectar utilizando una clave RSA, el acceso por contraseña queda bloqueado.
+* **GES**, servidor de gestión al cual nos podemos conectar mediante ssh desde fuera del firewall. Unicamente nos podemos conectar utilizando una clave RSA, el acceso por contraseña queda bloqueado.
 * **NAGIOS**, servidor que corre [Nagios](https://www.nagios.org/), una herramienta de monitorización *open source* que permite monitorizar los equipos y sus servicios de forma remota con un navegador web. La direccion web para conectarmos al servidor es `10.1.5.52/nagios`. El usuario y contraseña que se establecen por defecto son `nagiosadmin` y `xxxx`.
 
 ## Uso
@@ -93,16 +93,18 @@ A continuación, tenemos una breve explicación de las opciones disponibles.
 * `FILE`. Archivo que contiene toda la arquitectura del despliegue. Es un archivo XML que se encuentra dentro del escenario.
 * `--create`. Crea el escenario y realiza toda la configuración.
 * `--destroy`. Elimina el escenario y con ellos, todos los cambios realizados.
-* `--add-server`. Añade un servidor extra donde alojar la aplicacion y ejecuta todos los cambios necesarios.
+* `--add-server`. Añade un servidor extra donde alojar la aplicación y ejecuta todos los cambios necesarios.
 * `--no-console`. Se puede usar con `--create` o `--add-server`. Al arrancar el escenario no se muestran las consolas de todas las máquinas virtuales. Opcional.
+
+Para destruir el escenario entero, no sólo tenemos que hacer `--destroy` sobre el XML del escenario principal, sino también sobre los XMLs de los servidores que hemos ido añadiendo.
 
 ### Añadir un servidor
 
-Para añadir un servidor, tenemos que declarar un archivo de tipo XML como el que podemos encontrar en la carpeta [examples](examples). Tenemos que conectarlos a la LAN3, la LAN4 y a la LAN5 para la monitorizacion, asi como crearla con los archivos necesarios para la instalacion de Nagios.
+Para añadir un servidor, tenemos que declarar un archivo de tipo XML como el que podemos encontrar en la carpeta [examples](examples). Tenemos que conectarlos a la LAN3, la LAN4 y a la LAN5 para la monitorización, asi como crearla con los archivos necesarios para la instalación de Nagios.
 
-### Conexion con el servidor de gestion
+### Conexión con el servidor de gestion
 
-Para conectarnos con el servidor de gestion tenemos que utilizar la clave que genera el script con el nombre `ges_rsa`. En el caso de existir una clave RSA con ese mismo nombre en la carpeta `~/.ssh/`, el script de configuracion pasara a utilizar dicha clave.
+Para conectarnos con el servidor de gestión tenemos que utilizar la clave que genera el script con el nombre `ges_rsa`. En el caso de existir una clave RSA con ese mismo nombre en la carpeta `~/.ssh/`, el script de configuración pasara a utilizar dicha clave.
 
 Una vez que tenemos localizada la clave nos podemos conectar directamente al servidor haciendo:
 
