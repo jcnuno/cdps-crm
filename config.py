@@ -78,6 +78,7 @@ def main():
 			tree = ElementTree.parse(args.FILE)
 
 			add_server(
+				tree.find('vm').attrib['name'],
 				tree.find('vm/if[@net="LAN3"]/ipv4').text.split('/')[0],
 				tree.find('vm/if[@net="LAN5"]/ipv4').text.split('/')[0]
 			)		
@@ -305,14 +306,15 @@ def gestion():
 	# call('ssh-add ~/.ssh/ges_rsa', shell=True) -> DOCUMENTAR
 
 
-def add_server(lb_ip, nagios_ip):
+def add_server(name, lb_ip, nagios_ip):
 	'''
 	Anadir un servidor para alojar la aplicacion.
 	- Se configura el servidor (aplicacion y gluster).
 	- Se arranca de nuevo el balanceador de trafico para anadir el servidor.
 	- Se anade Nagios al nuevo servidor.
 	'''
-	print (lb_ip, nagios_ip)
+	pass
+
 
 
 @contextmanager

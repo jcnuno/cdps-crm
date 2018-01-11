@@ -41,6 +41,9 @@ SPAIN
     <if id="2" net="LAN4">
       <ipv4>10.1.4.14/24</ipv4>
     </if>
+    <if id="3" net="LAN5">
+      <ipv4>10.1.5.14/24</ipv4>
+    </if>
     <if id="9" net="virbr0">
       <ipv4>dhcp</ipv4>
     </if>
