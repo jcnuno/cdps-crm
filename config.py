@@ -19,7 +19,9 @@ import sys
 import json
 from subprocess import call, check_output
 from contextlib import contextmanager
+from xml.etree import ElementTree
 from time import time, sleep
+from threading import Thread
 
 logging.basicConfig(level=logging.INFO, format='%(levelname)s:%(name)s: %(message)s')
 logger = logging.getLogger('CDPS')
@@ -72,6 +74,13 @@ def main():
 			nagios()				# Configuramos Nagios
 		elif args.destroy:		# Destruimos todo el escenario
 			destroy(args.FILE)
+		elif args.add_server:	# Anadimos un nuevo servidor
+			tree = ElementTree.parse(args.FILE)
+
+			add_server(
+				tree.find('vm/if[@net="LAN3"]/ipv4').text.split('/')[0],
+				tree.find('vm/if[@net="LAN5"]/ipv4').text.split('/')[0]
+			)		
 
 	print('')
 
@@ -103,8 +112,6 @@ def destroy(file):
 	'''
 	logger.info('Destruyendo escenario...')
 	call('sudo vnx -f {file} --destroy'.format(file=file), shell=True, stdout=devnull)
-	call('ssh-add -d ~/.ssh/ges_rsa', shell=True)
-	call('rm ~/.ssh/ges_rsa*', shell=True)
 	logger.info('Escenario destruido.')
 
 
@@ -236,13 +243,46 @@ def nagios():
 	logger.info('Configuracion de Nagios')
 
 	# Install and configure nagios on nagios server
-	call('sudo lxc-attach --clear-env -n nagios -- /root/nagios_server.sh {nagios} {nrpe}'.format(nagios=NAGIOS_VERSION, nrpe=NRPE_VERSION), shell=True, stdout=devnull)
+	call('sudo lxc-attach --clear-env -n nagios -- bash -c "/root/nagios_server.sh {nagios} {nrpe}"'.format(nagios=NAGIOS_VERSION, nrpe=NRPE_VERSION), shell=True, stdout=devnull)
 
 	# Install nrpe on hosts
+	threads = []
 	for i in range(len(NAGIOS_HOSTS)):
-		call('sudo lxc-attach --clear-env -n {host} -- /root/nagios_server.sh {nagios_plugins} {nrpe}'.format(host=NAGIOS_HOSTS[i]['name'], nagios_plugins=NAGIOS_PLUGINS_VERSION, nrpe=NRPE_VERSION), shell=True, stdout=devnull)
+		threads.append(Thread(target=installNRPE, args=(NAGIOS_HOSTS[i]['name'],)))
+
+	for thread in threads:
+		thread.daemon = True 						# Daemonize thread
+		thread.start() 								# Start the execution
+
+	for thread in threads:
+		thread.join()								# Wait to finish
+
+	# Connecting hosts to Nagios
+	for i in range(len(NAGIOS_HOSTS)):
+		cmd_line = [
+			'cp /root/default_config/default_remote.cfg /usr/local/nagios/etc/servers/{name}.cfg'.format(name=NAGIOS_HOSTS[i]['name']),
+			'sed -i "s/remote_name_machine/{name}/g" /usr/local/nagios/etc/servers/{name}.cfg'.format(name=NAGIOS_HOSTS[i]['name']),
+			'sed -i "s/remote_description/{description}/g" /usr/local/nagios/etc/servers/{name}.cfg'.format(name=NAGIOS_HOSTS[i]['name'], description=NAGIOS_HOSTS[i]['description']),
+			'sed -i "s/remote_ip_address/{ip}/g" /usr/local/nagios/etc/servers/{name}.cfg'.format(name=NAGIOS_HOSTS[i]['name'], ip=NAGIOS_HOSTS[i]['ip'])
+		]
+		for line in range(len(cmd_line)):
+			call('sudo lxc-attach --clear-env -n nagios -- {cmd}'.format(cmd=cmd_line[line]), shell=True)
+
+	call('sudo lxc-attach --clear-env -n nagios -- sudo systemctl restart nagios', shell=True)
 	
 	logger.info('Nagios configurado.')
+
+
+def installNRPE(name):
+	'''
+	Instalacion del plugin nrpe en diferentes hosts en background, para instalarlo
+	en todos al mismo tiempo y ahorrar tiempo de ejecucion.
+	'''
+	call('sudo lxc-attach --clear-env -n {host} -- bash -c "/root/nagios_host.sh {nagios_plugins} {nrpe}"'.format(
+		host=name, 
+		nagios_plugins=NAGIOS_PLUGINS_VERSION, 
+		nrpe=NRPE_VERSION
+	), shell=True, stdout=devnull)
 
 
 def gestion():
@@ -250,9 +290,10 @@ def gestion():
 	Configuracion del servidor de gestion. No se permite conectarse
 	por ssh con contrasena, solo con clave rsa.
 	'''
-	call('ssh-keygen -t rsa -N "" -f "/home/$USER/.ssh/ges_rsa"', shell=True, stdout=devnull)
-	logger.info('Se han generado un nuevo par de claves para conectarse al servidor de gestion.')
-	logger.info('Las puedes encontrar en ~/.ssh/ges_rsa.')
+	if not os.path.exists('/home/' + os.environ['USER'] + '/.ssh/ges_rsa'):
+		call('ssh-keygen -t rsa -N "" -f "/home/$USER/.ssh/ges_rsa"', shell=True, stdout=devnull)
+		logger.info('Se han generado un nuevo par de claves para conectarse al servidor de gestion.')
+		logger.info('Las puedes encontrar en ~/.ssh/ges_rsa.')
 
 	key = check_output('cat /home/$USER/.ssh/ges_rsa.pub', shell=True)
 
@@ -261,7 +302,17 @@ def gestion():
 	call('{lxc} -- sed -i "s/#PasswordAuthentication yes/PasswordAuthentication no/" /etc/ssh/sshd_config'.format(lxc=lxc), shell=True)
 	call('{lxc} -- service ssh restart'.format(lxc=lxc), shell=True)
 
-	call('ssh-add ~/.ssh/ges_rsa', shell=True)
+	# call('ssh-add ~/.ssh/ges_rsa', shell=True) -> DOCUMENTAR
+
+
+def add_server(lb_ip, nagios_ip):
+	'''
+	Anadir un servidor para alojar la aplicacion.
+	- Se configura el servidor (aplicacion y gluster).
+	- Se arranca de nuevo el balanceador de trafico para anadir el servidor.
+	- Se anade Nagios al nuevo servidor.
+	'''
+	print (lb_ip, nagios_ip)
 
 
 @contextmanager

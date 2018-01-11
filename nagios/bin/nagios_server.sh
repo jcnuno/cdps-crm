@@ -37,6 +37,7 @@ sudo make install-plugin
 
 # CONFIGURING NAGIOS
 
+cd /root/
 sed -i "s+#cfg_dir=/usr/local/nagios/etc/servers+cfg_dir=/usr/local/nagios/etc/servers+" /usr/local/nagios/etc/nagios.cfg
 
 sudo mkdir /usr/local/nagios/etc/servers

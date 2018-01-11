@@ -14,6 +14,7 @@ sudo make install
 
 sleep 3
 
+cd /root/
 tar zxf nrpe-$2.tar.gz
 cd nrpe-$2
 
@@ -24,7 +25,7 @@ sudo make install
 sudo make install-config
 sudo make install-init
 
-sed -i "s+allowed_hosts=127.0.0.1,::1+allowed_hosts=127.0.0.1,::1,your_nagios_server_private_ip+" /usr/local/nagios/etc/nrpe.cfg
+sed -i "s+allowed_hosts=127.0.0.1,::1+allowed_hosts=127.0.0.1,::1,10.1.5.52+" /usr/local/nagios/etc/nrpe.cfg
 
 sudo systemctl start nrpe.service
 
