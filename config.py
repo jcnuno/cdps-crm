@@ -65,10 +65,10 @@ def main():
 	with timer('Accion terminada'):
 		if args.create:			# Creamos el escenario inicial
 			create(args.FILE, args.no_console)
-			#bbdd()					# Creamos la base de datos
+			bbdd()					# Creamos la base de datos
 			gestion()				# Configuramos el servidor de gestion
-			#storage()				# Creamos el GlusterFS
-			#crm()					# Desplegamos la aplicacion
+			storage()				# Creamos el GlusterFS
+			crm()					# Desplegamos la aplicacion
 			load_balancer()			# Configuramos el balancedor
 			#firewall()				# Configuramos el cortafuegos
 			nagios()				# Configuramos Nagios
@@ -330,10 +330,13 @@ def add_server(name, lb_ip, nagios_ip, console, file):
 	else:
 		call('sudo vnx -f {file} --create --no-console'.format(file=file), shell=True, stdout=devnull)
 
+	logger.info('Waiting to Virtual Machine to turn on.')
+	sleep(30)
+
 	# Configuramos la aplicacion
 	lxc = 'sudo lxc-attach --clear-env -n {name} --set-var DATABASE_URL={url}'.format(name=name, url=POSTGRES_URL)
 
-	call('{lxc} -- bash -c "cd /root; git clone https://github.com/CORE-UPM/CRM_2017.git"'.format(lxc=lxc), shell=True, stdout=devnull)
+	call('{lxc} -- bash -c "cd /root/; git clone https://github.com/CORE-UPM/CRM_2017.git"'.format(lxc=lxc), shell=True, stdout=devnull)
 	call('{lxc} -- bash -c "cd /root/CRM_2017; npm install; npm install forever"'.format(lxc=lxc), shell=True, stdout=devnull, stderr=devnull)
 	
 	# Arrancamos la aplicacion
