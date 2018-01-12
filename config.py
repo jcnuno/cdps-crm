@@ -45,6 +45,10 @@ NAGIOS_HOSTS = json.load(open(path + '/nagios.json'))
 
 
 def main():
+	'''
+	Funcion principal del script de configuracion.
+	'''
+
 	parser = argparse.ArgumentParser(description='Configuracion automatica del despliegue de un sistema CRM escalable')
 
 	parser.add_argument('FILE', help='VNX File para crear el escenario')
@@ -295,6 +299,10 @@ def installNRPE(name):
 	'''
 	Instalacion del plugin nrpe en diferentes hosts en background, para instalarlo
 	en todos al mismo tiempo y ahorrar tiempo de ejecucion.
+
+	Args:
+		name 		host donde realizar la instalacion.
+
 	'''
 	call('sudo lxc-attach --clear-env -n {host} -- bash -c "/root/nagios_host.sh {nagios_plugins} {nrpe}"'.format(
 		host=name, 
@@ -334,6 +342,14 @@ def add_server(name, lb_ip, nagios_ip, console, file):
 	- Se configura el servidor (aplicacion y gluster).
 	- Se arranca de nuevo el balanceador de trafico para anadir el servidor.
 	- Se anade Nagios al nuevo servidor.
+
+	Args:
+		name 		nombre del servidor.
+		lb_ip		ip de la interfaz del servidor conectada al lb.
+		nagios_ip 	ip de la interfaz del servidor conectada a nagios.
+		console 	booleano que indica si se muestra la consola o no.
+		file 		VNX File.
+
 	'''
 
 	if console:
@@ -399,6 +415,9 @@ def add_server(name, lb_ip, nagios_ip, console, file):
 
 @contextmanager
 def timer(name='task', function=logger.info):
+	'''
+	Funcion auxiliar que sirve  de temporizador.
+	'''
     start = time()
     yield start
     end = time()
@@ -406,7 +425,7 @@ def timer(name='task', function=logger.info):
 
 
 def print_progress(iteration, total, prefix='', suffix='', decimals=1, bar_length=100):
-    """
+    '''
     Call in a loop to create terminal progress bar
     @params:
         iteration   - Required  : current iteration (Int)
@@ -415,7 +434,7 @@ def print_progress(iteration, total, prefix='', suffix='', decimals=1, bar_lengt
         suffix      - Optional  : suffix string (Str)
         decimals    - Optional  : positive number of decimals in percent complete (Int)
         bar_length  - Optional  : character length of bar (Int)
-    """
+    '''
     str_format = "{0:." + str(decimals) + "f}"
     percents = str_format.format(100 * (iteration / float(total)))
     filled_length = int(round(bar_length * iteration / float(total)))
