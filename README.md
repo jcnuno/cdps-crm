@@ -57,7 +57,7 @@ El firewall únicamente va a permitir el tráfico necesario, además del que se 
 
 > Con el fin de poder ver el balanceo de tráfico, está habilitado el acceso al puerto 8001 del balanceador. En un escenario real, esta regla tendría que ser eliminada.
 
-Para comprobar el funcionamiento del firewall se puede realizar un escaneo de puertos como el que podemos ver en la siguiente [imagen](). A continuación se incluye una salida del comando.
+Para comprobar el funcionamiento del firewall se puede realizar un escaneo de puertos como el que podemos ver en la siguiente [imagen](docs/nmap.png). A continuación se incluye una salida del comando.
 
 ```shell
 [*] exec: nmap 10.1.0.0/16
