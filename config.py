@@ -17,6 +17,7 @@ import logging
 import os
 import sys
 import json
+import cPickle as pickle
 from subprocess import call, check_output
 from contextlib import contextmanager
 from xml.etree import ElementTree
@@ -80,9 +81,6 @@ def main():
             destroy(args.FILE)
         elif args.add_server:   # Anadimos un nuevo servidor
             tree = ElementTree.parse(args.FILE)
-            if tree.find('global/scenario_name').text == 'cdps_pfinal':
-                logger.error('El archivo pasado como parametro es el escenario principal.')
-                sys.exit()
             if len(tree.findall('vm')) > 1:
                 logger.error('Los servidores tienen que ser anadidos de uno en uno.')
                 sys.exit()
@@ -117,6 +115,7 @@ def create(file, console):
     for i in range(30):
         sleep(1)
         print_progress(i + 1, 30, prefix='Progress:', suffix='Complete', bar_length=30)
+    logger.info('Done.')
 
     logger.info('Escenario creado.')
 
@@ -126,11 +125,18 @@ def destroy(file):
     Destruccion del escenario completo.
 
     Args:
-        file        VNX File.
+        file        VNX File del escenario principal.
 
     '''
     logger.info('Destruyendo escenario...')
     call('sudo vnx -f {file} --destroy'.format(file=file), shell=True, stdout=devnull)
+
+    if os.path.exists('./.servers_added'):
+        servers = pickle.load(open('./.servers_added', 'rb'))
+        for i in range(len(servers)):
+            call('sudo vnx -f {file} --destroy'.format(file=servers[i]['file']), shell=True, stdout=devnull)
+        call('rm ./.servers_added', shell=True)
+
     logger.info('Escenario destruido.')
 
 
@@ -276,8 +282,9 @@ def nagios():
     logger.info('Instalando plugin nrpe en los hosts...')
     print_progress(0, len(threads), prefix='Progress:', suffix='Complete', bar_length=30)
     for thread in threads:
-        thread.join()                               # Wait to finish
+        thread.join()                               # Wait to finish thread
         print_progress(threads.index(thread) + 1, len(threads), prefix='Progress:', suffix='Complete', bar_length=30)
+    logger.info('Done.')
 
     # Connecting hosts to Nagios
     for i in range(len(NAGIOS_HOSTS)):
@@ -352,6 +359,26 @@ def add_server(name, lb_ip, nagios_ip, console, file):
 
     '''
 
+    # Guardamos los datos del nuevo servidor
+    if not os.path.exists('./.servers_added'):
+        call('touch .servers_added', shell=True)
+        pickle.dump([], open('./.servers_added', 'wb'))
+
+    servers = pickle.load(open('./.servers_added', 'rb'))
+
+    for i in range(len(servers)):
+        if servers[i]['name'] == name:
+            logger.error('Servidor ya disponible en {ip}.'.format(ip=lb_ip))
+            sys.exit()
+
+    servers.append({
+        'name': name,
+        'lb_ip': lb_ip,
+        'file': file,
+    })
+    pickle.dump(servers, open('./.servers_added', 'wb'))
+
+    # Creamos el escenario
     if console:
         call('sudo vnx -f {file} --create'.format(file=file), shell=True, stdout=devnull)
     else:
@@ -362,6 +389,7 @@ def add_server(name, lb_ip, nagios_ip, console, file):
     for i in range(30):
         sleep(1)
         print_progress(i + 1, 30, prefix='Progress:', suffix='Complete', bar_length=30)
+    logger.info('Done.')
 
     # Configuramos la aplicacion
     lxc = 'sudo lxc-attach --clear-env -n {name} --set-var DATABASE_URL={url}'.format(name=name, url=POSTGRES_URL)
@@ -388,7 +416,9 @@ def add_server(name, lb_ip, nagios_ip, console, file):
     for i in range(1, N_SERVERS_DEFAULT + 1):
         cmd_line += ' --backend 10.1.3.1{n}:3000'.format(n=str(i))
 
-    cmd_line += ' --backend {ip}:3000'.format(ip=lb_ip)
+    for i in range(len(servers)):
+        cmd_line += ' --backend {ip}:3000'.format(ip=servers[i]['lb_ip'])
+
     cmd_line += ' --web-interface 0:8001 &'
 
     call(cmd_line, shell=True, stdout=devnull)
@@ -440,7 +470,7 @@ def print_progress(iteration, total, prefix='', suffix='', decimals=1, bar_lengt
     filled_length = int(round(bar_length * iteration / float(total)))
     bar = '=' * filled_length + '>' + '-' * (bar_length - filled_length - 1)
 
-    sys.stdout.write('\r%s |%s| %s%s %s' % (prefix, bar, percents, '%', suffix)),
+    sys.stdout.write('\r%s [%s] %s%s %s' % (prefix, bar, percents, '%', suffix)),
 
     if iteration == total:
         sys.stdout.write('\n')

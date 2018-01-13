@@ -8,6 +8,7 @@ La aplicación CRM la podemos encontrar en el siguiente [enlace](https://github.
 
 * [Descripción](#descripción)
 * [Arquitectura](#arquitectura)
+  * [Firewall](#firewall)
 * [Uso](#uso)
   * [Descarga y preparación del escenario](#descarga-y-preparación-del-escenario)
   * [Script de configuración](#script-de-configuración)
@@ -24,7 +25,7 @@ La arquitectura debe garantizar la escalabilidad de la aplicación, permitiendo 
 * El servicio CRM debe estar accesible a los clientes en el puerto estándar de web (80).
 * El balanceador debe balancear la carga entre todos los servidores utilizando un algoritmo round-robin.
 * El cluster de almacenamiento, que se utilizará para almacenar las imágenes utilizadas por el CRM se debe configurar de forma que utilice GlusterFS y que replique la información entre los tres servidores (nas1, nas2 y nas3).
-* La información manejad por el CRM se debe almacenar en el servidor de bases de datos, utilizando PostgreSQL (recomendado) u otro gestor de bases de datos soportado por el CRM. En cualquier caso, debe utilizarse una base de datos externa desplegada en el servidor destinado a tales efectos. Por lo tanto, no puede utilizarse SQLite.
+* La información manejada por el CRM se debe almacenar en el servidor de bases de datos, utilizando PostgreSQL (recomendado) u otro gestor de bases de datos soportado por el CRM. En cualquier caso, debe utilizarse una base de datos externa desplegada en el servidor destinado a tales efectos. Por lo tanto, no puede utilizarse SQLite.
 * El firewall debe permitir únicamente el acceso mediante ping y al puerto 80 de TCP de la dirección balanceador de tráfico. Cualquier otro tráfico debe de estar prohibido.
 
 ## Arquitectura
@@ -33,10 +34,10 @@ En el proyecto se utilizarán los elementos típicos de las arquitecturas actual
 
 ![architecture](docs/architecture.png)
 
-La solución que se ha implementado proporciona una **alta disponibilidad**, y es fácilmente **escalable**. 
+La solución que se ha implementado proporciona una **alta disponibilidad**, y es fácilmente **escalable**. La función y configuración de cada uno de los elementos que forman la arquitectura es la siguiente,
 
-* **FW**, es un cortafuegos y únicamente permite el acceso mediante ping y al puerto 80 de TCP de la dirección del balanceador de tráfico. Tambien permite el acceso a la direccion web de Nagios para monitorizar todo el sistema y el acceso por ssh al servidor de gestion. El resto de tráfico está bloqueado.
-* **LB**, es el balanceador de carga *Crossroads* que balancea el tráfico entre los servidores utilizando el algoritmo round-robin.
+* **FW**, es un cortafuegos y únicamente permite cierto tráfico, el resto queda bloqueado. 
+* **LB**, es el balanceador de carga *Crossroads* que balancea el tráfico entre los servidores utilizando el algoritmo round-robin. También realiza un mapeo del puerto 3000 donde corre la aplicación al puerto 80.
 * **S1, S2 y S3**, es el servicio en que se aloja la aplicación web CRM. Esta está alojada en el puerto 3000, y es el balanceador de carga el que se encarga de hacer un mapeo del puerto 80 al 3000.
 * **BBDD**, es el servicio en que se aloja la base de datos, y utiliza la imagen de Postgres para ello. Para la conexión de la base de datos, utilizamos la siguiente URL, `postgres://crm:xxxx@10.1.4.31:5432/crm`.
 * **NAS**, son los servidores de almacenamiento. La información está replicada entre los tres servidores, de forma que se puede leer y escribir en cualquiera de ellos.
@@ -46,9 +47,60 @@ Además del escenario original, podemos encontrar una nueva **red de gestión**,
 * **GES**, servidor de gestión al cual nos podemos conectar mediante ssh desde fuera del firewall. Unicamente nos podemos conectar utilizando una clave RSA, el acceso por contraseña queda bloqueado.
 * **NAGIOS**, servidor que corre [Nagios](https://www.nagios.org/), una herramienta de monitorización *open source* que permite monitorizar los equipos y sus servicios de forma remota con un navegador web. La direccion web para conectarmos al servidor es `10.1.5.52/nagios`. El usuario y contraseña que se establecen por defecto son `nagiosadmin` y `xxxx`.
 
-Con el script de configuración que está descrito más abajo, se pueden añadir tantos servidores como uno quiera, haciéndose las configuraciones necesarias en cada uno de ellos, lo que hace que el sistema sea fácilmente escalable en función de la carga que tengan que soportar los servidores.
+### Firewall
+
+El firewall únicamente va a permitir el tráfico necesario, además del que se incluía por defecto en el enunciado.
+
+* Se permite conexión vía `ssh` al servidor de gestión GES.
+* Se permite conexión `http` al balanceador de tráfico y a la interfaz de monitorización de Nagios.
+* Se permite la conexión al firewall al puerto 5666 que es el puerto con el trabaja el plugin *nrpe* de Nagios. Esta regla es para poder monitorizar el estado del servidor que alberga el firewall
 
 > Con el fin de poder ver el balanceo de tráfico, está habilitado el acceso al puerto 8001 del balanceador. En un escenario real, esta regla tendría que ser eliminada.
+
+Para comprobar el funcionamiento del firewall se puede realizar un escaneo de puertos como el que podemos ver en la siguiente [imagen](). A continuación se incluye una salida del comando.
+
+```shell
+[*] exec: nmap 10.1.0.0/16
+
+Starting Nmap 7.01 ( https://nmap.org ) at 2018-01-13 23:30 CET
+Nmap scan report for 10.1.1.2
+Host is up (0.00030s latency).
+Not shown: 998 closed ports
+PORT    STATE SERVICE
+22/tcp  open  ssh
+111/tcp open  rpcbind
+
+Nmap scan report for 10.1.1.11
+Host is up (0.00029s latency).
+Not shown: 998 closed ports
+PORT    STATE SERVICE
+22/tcp  open  ssh
+111/tcp open  rpcbind
+
+Nmap scan report for 10.1.1.12
+Host is up (0.000071s latency).
+Not shown: 998 closed ports
+PORT    STATE SERVICE
+22/tcp  open  ssh
+111/tcp open  rpcbind
+
+Nmap scan report for 10.1.2.2
+Host is up (0.00034s latency).
+Not shown: 998 filtered ports
+PORT     STATE SERVICE
+80/tcp   open  http
+8001/tcp open  vcom-tunnel
+
+Nmap scan report for 10.1.5.52
+Host is up (0.00057s latency).
+Not shown: 999 filtered ports
+PORT   STATE SERVICE
+80/tcp open  http
+
+Nmap done: 65536 IP addresses (5 hosts up) scanned in 2560.20 seconds
+```
+
+Del escaneo de puertos, podemos comprobar que el balanceador de tráfico tiene abiertos los puertos 80 y 8001, tal y como hemos definido en las reglas del firewall. El servidor Nagios también tiene abierto el puerto 80. Los otros tres hosts que aparecen, son el host y los clientes C1 y C2.
 
 ## Uso
 
@@ -100,11 +152,13 @@ A continuación, tenemos una breve explicación de las opciones disponibles.
 * `--add-server`. Añade un servidor extra donde alojar la aplicación y ejecuta todos los cambios necesarios.
 * `--no-console`. Se puede usar con `--create` o `--add-server`. Al arrancar el escenario no se muestran las consolas de todas las máquinas virtuales. Opcional.
 
-Para destruir el escenario entero, no sólo tenemos que hacer `--destroy` sobre el XML del escenario principal, sino también sobre los XMLs de los servidores que hemos ido añadiendo.
+Para destruir el escenario, tenemos que utilizar el archivo del escenario principal. El script eliminará los servidores que se han añadido posteriormente de forma automática.
 
 ### Añadir un servidor
 
 Para añadir un servidor, tenemos que declarar un archivo de tipo XML como el que podemos encontrar en la carpeta [examples](examples). Tenemos que conectarlos a la LAN3, la LAN4 y a la LAN5 para la monitorización, asi como crearla con los archivos necesarios para la instalación de Nagios.
+
+Con esto se pueden añadir tantos servidores como uno quiera, haciéndose las configuraciones mínimas en cada uno de ellos de forma automática, lo que hace que el sistema sea **fácilmente escalable** en función de la carga que tengan que soportar los servidores.
 
 ### Conexión con el servidor de gestion
 
