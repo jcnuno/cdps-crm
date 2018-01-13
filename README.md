@@ -115,7 +115,7 @@ La última versión del escenario está disponible en el siguiente [enlace](http
     * Accede a un terminal de la máquina virtual y descargue y descomprima el escenario.
 
     ```shell
-    wget https://github.com/tasiomendez/cdps-crm/releases/download/v0.0.2/pfinal.tgz
+    wget https://github.com/tasiomendez/cdps-crm/releases/download/v1.0.0/pfinal.tgz
     sudo vnx --unpack pfinal.tgz && cd pfinal
     bin/prepare-pfinal-vm
     ```
@@ -123,7 +123,7 @@ La última versión del escenario está disponible en el siguiente [enlace](http
 2. **Si utiliza ordenador propio con Linux y VNX**, accede a un terminal del PC y descargue el escenario y descomprímalo mediante:
 
     ```shell
-    wget https://github.com/tasiomendez/cdps-crm/releases/download/v0.0.2/pfinal.tgz
+    wget https://github.com/tasiomendez/cdps-crm/releases/download/v1.0.0/pfinal.tgz
     sudo vnx --unpack pfinal.tgz && cd pfinal
     bin/prepare-pfinal-vm
     ```
@@ -131,7 +131,7 @@ La última versión del escenario está disponible en el siguiente [enlace](http
 3. **Si utiliza el laboratorio**, entre en su cuenta, acceda a un terminal, descargue el escenario y descomprímalo.
 
     ```shell
-    wget https://github.com/tasiomendez/cdps-crm/releases/download/v0.0.2/pfinal.tgz
+    wget https://github.com/tasiomendez/cdps-crm/releases/download/v1.0.0/pfinal.tgz
     sudo vnx --unpack pfinal.tgz && cd pfinal
     bin/prepare-pfinal-labo
     ```
