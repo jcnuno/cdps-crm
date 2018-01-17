@@ -60,6 +60,7 @@ def main():
     parser.add_argument('--no-console', help='arrancar el escenario sin mostrar las consolas', action='store_false')
 
     parser.add_argument('--add-server', help='anade un servidor web al escenario', action='store_true')
+    parser.add_argument('--remove-server', help='elimina un servidor web del escenario', action='store_true')
 
     args = parser.parse_args()
 
@@ -89,6 +90,15 @@ def main():
                 tree.find('vm/if[@net="LAN3"]/ipv4').text.split('/')[0],
                 tree.find('vm/if[@net="LAN5"]/ipv4').text.split('/')[0],
                 args.no_console,
+                args.FILE
+            )
+        elif args.remove_server:
+            tree = ElementTree.parse(args.FILE)
+            if len(tree.findall('vm')) > 1:
+                logger.error('Los servidores tienen que ser eliminados de uno en uno.')
+                sys.exit()
+            remove_server(
+                tree.find('vm').attrib['name'],
                 args.FILE
             )
 
@@ -438,6 +448,62 @@ def add_server(name, lb_ip, nagios_ip, console, file):
     for line in range(len(cmd_line)):
         call('sudo lxc-attach --clear-env -n nagios -- {cmd}'.format(cmd=cmd_line[line]), shell=True)
 
+    call('sudo lxc-attach --clear-env -n nagios -- sudo systemctl restart nagios', shell=True)
+
+    logger.info('Nagios actualizado.')
+
+
+def remove_server(name, file):
+    '''
+    Elimina un servidor del escenario que ya haya sido anadido antes.
+
+    Args:
+        name        nombre del servidor.
+        file        VNX File.
+
+    '''
+
+    # Comprobamos que el servidor existe
+    removed = False
+    if os.path.exists('./.servers_added'):
+        servers = pickle.load(open('./.servers_added', 'rb'))
+        for i in range(len(servers)):
+            if servers[i]['name'] == name:
+                servers.remove(servers[i])
+                removed = True
+                break
+
+        if not removed:
+            logger.error('El servidor no existe.')
+            sys.exit()
+
+        pickle.dump(servers, open('./.servers_added', 'wb'))
+
+    else:
+        logger.error('El servidor no existe.')
+        sys.exit() 
+
+    # Destruimos la maquina
+    call('sudo vnx -f {file} --destroy'.format(file=file), shell=True, stdout=devnull)
+
+    # Actualizamos el balanceador
+    call('sudo lxc-attach --clear-env -n lb -- killall xr', shell=True)
+    cmd_line = 'sudo lxc-attach --clear-env -n lb -- xr --server tcp:0:80 -dr'
+
+    for i in range(1, N_SERVERS_DEFAULT + 1):
+        cmd_line += ' --backend 10.1.3.1{n}:3000'.format(n=str(i))
+
+    for i in range(len(servers)):
+        cmd_line += ' --backend {ip}:3000'.format(ip=servers[i]['lb_ip'])
+
+    cmd_line += ' --web-interface 0:8001 &'
+
+    call(cmd_line, shell=True, stdout=devnull)
+
+    logger.info('Balanceador actualizado.')
+
+    # Actualizamos Nagios
+    call('sudo lxc-attach --clear-env -n nagios -- rm /usr/local/nagios/etc/servers/{name}.cfg'.format(name=name), shell=True)
     call('sudo lxc-attach --clear-env -n nagios -- sudo systemctl restart nagios', shell=True)
 
     logger.info('Nagios actualizado.')
