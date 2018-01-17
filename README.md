@@ -13,6 +13,7 @@ La aplicación CRM la podemos encontrar en el siguiente [enlace](https://github.
   * [Descarga y preparación del escenario](#descarga-y-preparación-del-escenario)
   * [Script de configuración](#script-de-configuración)
   * [Añadir un servidor](#añadir-un-servidor)
+  * [Eliminar un servidor](#eliminar-un-servidor)
   * [Conexión con el servidor de gestion](#conexion-con-el-servidor-de-gestion)
 * [Autores](#autores)
 
@@ -142,7 +143,7 @@ La última versión del escenario está disponible en el siguiente [enlace](http
 
 El script de configuración te permite automatizar el despliegue del CRM con todos los equipos configurados y listos para usarse. Para ello, una vez que hemos descargado el escenario y lo tenemos todo preparado ejecutamos el script de la siguiente forma:
 
-```python config.py FILE [--create | --destroy | --add-server] [--no-console]```
+```python config.py FILE [--create | --destroy | --add-server | --remove-server] [--no-console]```
 
 A continuación, tenemos una breve explicación de las opciones disponibles.
 
@@ -150,6 +151,7 @@ A continuación, tenemos una breve explicación de las opciones disponibles.
 * `--create`. Crea el escenario y realiza toda la configuración.
 * `--destroy`. Elimina el escenario y con ellos, todos los cambios realizados.
 * `--add-server`. Añade un servidor extra donde alojar la aplicación y ejecuta todos los cambios necesarios.
+* `--remove-server`. Elimina un servidor que haya sido añadido anteriormente.
 * `--no-console`. Se puede usar con `--create` o `--add-server`. Al arrancar el escenario no se muestran las consolas de todas las máquinas virtuales. Opcional.
 
 Para destruir el escenario, tenemos que utilizar el archivo del escenario principal. El script eliminará los servidores que se han añadido posteriormente de forma automática.
@@ -159,6 +161,12 @@ Para destruir el escenario, tenemos que utilizar el archivo del escenario princi
 Para añadir un servidor, tenemos que declarar un archivo de tipo XML como el que podemos encontrar en la carpeta [examples](examples). Tenemos que conectarlos a la LAN3, la LAN4 y a la LAN5 para la monitorización, asi como crearla con los archivos necesarios para la instalación de Nagios.
 
 Con esto se pueden añadir tantos servidores como uno quiera, haciéndose las configuraciones mínimas en cada uno de ellos de forma automática, lo que hace que el sistema sea **fácilmente escalable** en función de la carga que tengan que soportar los servidores.
+
+### Eliminar un servidor
+
+Para eliminar un servidor, tenemos que utilizar el mismo archivo XML que utilizamos para crearlo. Al eliminarlo, se actualizará Nagios y el balanceador.
+
+De esta forma, el escenario no sólo es escalable a la hora de añadir servidores, sino también a la hora de eliminarlos.
 
 ### Conexión con el servidor de gestion
 
