@@ -12,6 +12,7 @@ services:
 
   lb:
     build: docker/lb
+    privileged: true
     ports:
       - '8081:8001'
       - '8080:80'
@@ -29,8 +30,8 @@ services:
     environment:
       DATABASE_URL: 'postgres://crm:xxxx@bbdd:5432/crm'
     networks:
-      - LAN4
       - LAN3
+      - LAN4
     depends_on:
       - nas1
       - nas2
@@ -44,8 +45,8 @@ services:
     environment:
       DATABASE_URL: 'postgres://crm:xxxx@bbdd:5432/crm'
     networks:
-      - LAN4
       - LAN3
+      - LAN4
     depends_on:
       - s1
       - nas1
@@ -60,8 +61,8 @@ services:
     environment:
       DATABASE_URL: 'postgres://crm:xxxx@bbdd:5432/crm'
     networks:
-      - LAN4
       - LAN3
+      - LAN4
     depends_on:
       - s1
       - nas1
@@ -92,7 +93,7 @@ services:
       - LAN4
 
 networks:
-  LAN4:
-    driver: bridge
   LAN3:
+    driver: bridge
+  LAN4:
     driver: bridge
