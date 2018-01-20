@@ -9,7 +9,8 @@ La aplicación CRM la podemos encontrar en el siguiente [enlace](https://github.
 * [Descripción](#descripción)
 * [Arquitectura](#arquitectura)
   * [Firewall](#firewall)
-* [Uso](#uso)
+* [Docker](#docker)
+* [Uso del script de configuración en Python](#uso-del-script-de-configuración-en-python)
   * [Descarga y preparación del escenario](#descarga-y-preparación-del-escenario)
   * [Script de configuración](#script-de-configuración)
   * [Añadir un servidor](#añadir-un-servidor)
@@ -35,7 +36,7 @@ En el proyecto se utilizarán los elementos típicos de las arquitecturas actual
 
 ![architecture](docs/architecture.png)
 
-La solución que se ha implementado proporciona una **alta disponibilidad**, y es fácilmente **escalable**. La función y configuración de cada uno de los elementos que forman la arquitectura es la siguiente,
+La solución que se ha implementado proporciona una **alta disponibilidad**, y es fácilmente **escalable**. Se podría conseguir mayor disponibilidad replicando la base de datos postgres. La función y configuración de cada uno de los elementos que forman la arquitectura es la siguiente,
 
 * **FW**, es un cortafuegos y únicamente permite cierto tráfico, el resto queda bloqueado. 
 * **LB**, es el balanceador de carga *Crossroads* que balancea el tráfico entre los servidores utilizando el algoritmo round-robin. También realiza un mapeo del puerto 3000 donde corre la aplicación al puerto 80.
@@ -46,7 +47,7 @@ La solución que se ha implementado proporciona una **alta disponibilidad**, y e
 Además del escenario original, podemos encontrar una nueva **red de gestión**, desde la cual se puede gestionar y monitorizar todo el sistema.
 
 * **GES**, servidor de gestión al cual nos podemos conectar mediante ssh desde fuera del firewall. Unicamente nos podemos conectar utilizando una clave RSA, el acceso por contraseña queda bloqueado.
-* **NAGIOS**, servidor que corre [Nagios](https://www.nagios.org/), una herramienta de monitorización *open source* que permite monitorizar los equipos y sus servicios de forma remota con un navegador web. La direccion web para conectarmos al servidor es `10.1.5.52/nagios`. El usuario y contraseña que se establecen por defecto son `nagiosadmin` y `xxxx`.
+* **Nagios**, servidor que corre [Nagios](https://www.nagios.org/), una herramienta de monitorización *open source* que permite monitorizar los equipos y sus servicios de forma remota con un navegador web. La direccion web para conectarmos al servidor es `10.1.5.52/nagios`. El usuario y contraseña que se establecen por defecto son `nagiosadmin` y `xxxx`.
 
 ### Firewall
 
@@ -103,7 +104,37 @@ Nmap done: 65536 IP addresses (5 hosts up) scanned in 2560.20 seconds
 
 Del escaneo de puertos, podemos comprobar que el balanceador de tráfico tiene abiertos los puertos 80 y 8001, tal y como hemos definido en las reglas del firewall. El servidor Nagios también tiene abierto el puerto 80. Los otros tres hosts que aparecen, son el host y los clientes C1 y C2.
 
-## Uso
+## Docker
+
+Otra opción es desplegar el escenario con Docker. Para ello se facilitan los Dockerfile necesarios para construir las imágenes y un fichero de configuración para [Docker Compose](https://docs.docker.com/compose/) que permite desplegar el escenario entero con un sólo comando. 
+
+La arquitectura que se ha seguido para implementar Docker es la siguiente.
+
+![docker architecture](docs/docker.png)
+
+En este caso, se han reducido el número de contenedores en comparación con el número de máquinas virtuales necesarias para el despliegue.
+
+* **LB**, es el balanceador de carga *Crossroads* que balancea el tráfico entre los servidores utilizando el algoritmo round-robin. También realiza un mapeo del puerto 3000 donde corre la aplicación al puerto 80. Además, se ha configurado un cortafuegos en el propio contenedor que sólo permite el acceso a los puertos 80 y 8001 mediante tcp.
+* **S1, S2 y S3**, es el servicio en que se aloja la aplicación web CRM. Esta está alojada en el puerto 3000, y es el balanceador de carga el que se encarga de hacer un mapeo del puerto 80 al 3000.
+* **BBDD**, es el servicio en que se aloja la base de datos, y utiliza la imagen de Postgres para ello. Para la conexión de la base de datos, se utiliza la siguiente URL, `postgres://crm:xxxx@10.1.4.31:5432/crm`.
+* **NAS**, son los servidores de almacenamiento. La información está replicada entre los tres servidores, de forma que se puede leer y escribir en cualquiera de ellos.
+* **Nagios**, se encarga de la monitorización de todo el escenario. Para ello, se utiliza el plugin NRPE que se instala en el resto de contenedores y permiten que el servidor central de Nagios monitorice cada uno de ellos. Además, se ha configurado un cortafuegos en el propio contenedor que sólo permite el acceso al puerto 80 mediante tcp y al puerto 5666 para el funcionamiento del plugin nrpe.
+
+Para desplegar el escenario, únicamente necesitamos un equipo que tenga Docker y Docker Compose instalados. Una vez instalados y clonado el repositorio, ejecutamos desde el directorio principal del repositorio:
+
+```shell
+docker-compose up --build
+```
+
+Una vez terminado de ejecutar el comando anterior, ya podemos acceder a la aplicación y a la monitorización, para ello desde el navegador entramos a `localhost:<port>` donde el puerto puede ser:
+
+| Puerto | Servicio | 
+| -- | -- |
+| `8080` | Aplicación del CRM | 
+| `8081` | Interfaz de gestión del balanceador | 
+| `8085` | Interfaz de monitorización de Nagios. El usuario y contraseña por defecto son `nagiosadmin` y `xxxx`. | 
+
+## Uso del script de configuración en Python
 
 ### Descarga y preparación del escenario
 
@@ -115,29 +146,29 @@ La última versión del escenario está disponible en el siguiente [enlace](http
 
     * Accede a un terminal de la máquina virtual y descargue y descomprima el escenario.
 
-    ```shell
-    wget https://github.com/tasiomendez/cdps-crm/releases/download/v1.0.0/pfinal.tgz
-    sudo vnx --unpack pfinal.tgz && cd pfinal
-    bin/prepare-pfinal-vm
-    ```
+```shell
+wget https://github.com/tasiomendez/cdps-crm/releases/download/v1.0.1/pfinal.tgz
+sudo vnx --unpack pfinal.tgz && cd pfinal
+bin/prepare-pfinal-vm
+```
 
 2. **Si utiliza ordenador propio con Linux y VNX**, accede a un terminal del PC y descargue el escenario y descomprímalo mediante:
 
-    ```shell
-    wget https://github.com/tasiomendez/cdps-crm/releases/download/v1.0.0/pfinal.tgz
-    sudo vnx --unpack pfinal.tgz && cd pfinal
-    bin/prepare-pfinal-vm
-    ```
+```shell
+wget https://github.com/tasiomendez/cdps-crm/releases/download/v1.0.1/pfinal.tgz
+sudo vnx --unpack pfinal.tgz && cd pfinal
+bin/prepare-pfinal-vm
+```
 
 3. **Si utiliza el laboratorio**, entre en su cuenta, acceda a un terminal, descargue el escenario y descomprímalo.
 
-    ```shell
-    wget https://github.com/tasiomendez/cdps-crm/releases/download/v1.0.0/pfinal.tgz
-    sudo vnx --unpack pfinal.tgz && cd pfinal
-    bin/prepare-pfinal-labo
-    ```
+```shell
+wget https://github.com/tasiomendez/cdps-crm/releases/download/v1.0.1/pfinal.tgz
+sudo vnx --unpack pfinal.tgz && cd pfinal
+bin/prepare-pfinal-labo
+```
 
-    > Por restricciones de espacio en el laboratorio es necesario trabajar en el directorio /mnt/tmp.
+> Por restricciones de espacio en el laboratorio es necesario trabajar en el directorio /mnt/tmp.
 
 ### Script de configuración
 
