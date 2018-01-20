@@ -22,7 +22,6 @@ sudo /usr/bin/install -c -m 644 sample-config/httpd.conf /etc/apache2/sites-avai
 
 sudo usermod -G nagcmd www-data
 
-
 # INSTALL check_rpe PLUGIN
 
 cd /root/
@@ -33,7 +32,6 @@ cd nrpe-$2
 ./configure
 make check_nrpe
 sudo make install-plugin
-
 
 # CONFIGURING NAGIOS
 
@@ -54,7 +52,6 @@ sudo cp /root/default_config/nagios.service /etc/systemd/system/nagios.service
 
 sudo systemctl enable /etc/systemd/system/nagios.service
 sudo systemctl start nagios
-
 
 # FIX 'no output on stdout' ERROR
 cp /usr/lib/nagios/plugins/check_* /usr/local/nagios/libexec

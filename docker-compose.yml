@@ -3,12 +3,11 @@ version: '3'
 services:
 
   bbdd:
-    image: postgres
-    environment:
-      POSTGRES_USER: crm
-      POSTGRES_PASSWORD: xxxx
+    build: docker/postgres
+    privileged: true
     networks:
       - LAN4
+      - LAN5
 
   lb:
     build: docker/lb
@@ -18,6 +17,7 @@ services:
       - '8080:80'
     networks:
       - LAN3
+      - LAN5
     depends_on:
       - s1
       - s2
@@ -25,13 +25,14 @@ services:
 
   s1:
     build: docker/servers
-    command: 'bash -c "sleep 25; mount -t glusterfs nas1:/nas /mnt/nas; npm run-script migrate_local && npm run-script seed_local; npm run-script supervisor"'
+    command: 'bash -c "/usr/local/nagios/bin/nrpe -c /usr/local/nagios/etc/nrpe.cfg -d; sleep 25; mount -t glusterfs nas1:/nas /mnt/nas; npm run-script migrate_local && npm run-script seed_local; npm run-script supervisor"'
     privileged: true
     environment:
       DATABASE_URL: 'postgres://crm:xxxx@bbdd:5432/crm'
     networks:
       - LAN3
       - LAN4
+      - LAN5
     depends_on:
       - nas1
       - nas2
@@ -40,13 +41,14 @@ services:
 
   s2:
     build: docker/servers
-    command: 'bash -c "sleep 25; mount -t glusterfs nas1:/nas /mnt/nas; npm run-script supervisor"'
+    command: 'bash -c "/usr/local/nagios/bin/nrpe -c /usr/local/nagios/etc/nrpe.cfg -d; sleep 25; mount -t glusterfs nas1:/nas /mnt/nas; npm run-script supervisor"'
     privileged: true
     environment:
       DATABASE_URL: 'postgres://crm:xxxx@bbdd:5432/crm'
     networks:
       - LAN3
       - LAN4
+      - LAN5
     depends_on:
       - s1
       - nas1
@@ -56,13 +58,14 @@ services:
 
   s3:
     build: docker/servers
-    command: 'bash -c "sleep 25; mount -t glusterfs nas1:/nas /mnt/nas; npm run-script supervisor"'
+    command: 'bash -c "/usr/local/nagios/bin/nrpe -c /usr/local/nagios/etc/nrpe.cfg -d; sleep 25; mount -t glusterfs nas1:/nas /mnt/nas; npm run-script supervisor"'
     privileged: true
     environment:
       DATABASE_URL: 'postgres://crm:xxxx@bbdd:5432/crm'
     networks:
       - LAN3
       - LAN4
+      - LAN5
     depends_on:
       - s1
       - nas1
@@ -72,10 +75,11 @@ services:
 
   nas1:
     build: docker/gluster
-    command: 'bash -c "service glusterfs-server restart; sleep 10; gluster peer probe nas2; sleep 2; gluster peer probe nas3; sleep 2; gluster volume create nas replica 3 nas1:/nas nas2:/nas nas3:/nas force; gluster volume start nas && tail -f /dev/null"'
+    command: 'bash -c "/usr/local/nagios/bin/nrpe -c /usr/local/nagios/etc/nrpe.cfg -d && service glusterfs-server restart; sleep 10; gluster peer probe nas2; sleep 2; gluster peer probe nas3; sleep 2; gluster volume create nas replica 3 nas1:/nas nas2:/nas nas3:/nas force; gluster volume start nas && tail -f /dev/null"'
     privileged: true
     networks:
       - LAN4
+      - LAN5
     depends_on:
       - nas2
       - nas3
@@ -85,15 +89,36 @@ services:
     privileged: true
     networks:
       - LAN4
+      - LAN5
 
   nas3:
     build: docker/gluster
     privileged: true
     networks:
       - LAN4
+      - LAN5
+
+  nagios:
+    build: docker/nagios
+    privileged: true
+    ports:
+      - '8085:80'
+    networks:
+      - LAN5
+    depends_on: 
+      - bbdd
+      - lb
+      - s1
+      - s2
+      - s3
+      - nas1
+      - nas2
+      - nas3
 
 networks:
   LAN3:
     driver: bridge
   LAN4:
+    driver: bridge
+  LAN5:
     driver: bridge
