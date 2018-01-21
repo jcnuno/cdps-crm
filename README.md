@@ -9,6 +9,7 @@ La aplicación CRM la podemos encontrar en el siguiente [enlace](https://github.
 * [Descripción](#descripción)
 * [Arquitectura](#arquitectura)
   * [Firewall](#firewall)
+  * [Balanceador de carga](#balanceador-de-carga)
 * [Docker](#docker)
 * [Uso del script de configuración en Python](#uso-del-script-de-configuración-en-python)
   * [Descarga y preparación del escenario](#descarga-y-preparación-del-escenario)
@@ -16,6 +17,7 @@ La aplicación CRM la podemos encontrar en el siguiente [enlace](https://github.
   * [Añadir un servidor](#añadir-un-servidor)
   * [Eliminar un servidor](#eliminar-un-servidor)
   * [Conexión con el servidor de gestion](#conexion-con-el-servidor-de-gestion)
+* [Despliegue en la nube](#despliegue-en-la-nube)
 * [Autores](#autores)
 
 ## Descripción
@@ -36,7 +38,7 @@ En el proyecto se utilizarán los elementos típicos de las arquitecturas actual
 
 ![architecture](docs/architecture.png)
 
-La solución que se ha implementado proporciona una **alta disponibilidad**, y es fácilmente **escalable**. Se podría conseguir mayor disponibilidad replicando la base de datos postgres. La función y configuración de cada uno de los elementos que forman la arquitectura es la siguiente,
+La solución que se ha implementado proporciona una **alta disponibilidad**, y es fácilmente **escalable**, aunque se podría conseguir mayor disponibilidad replicando la base de datos postgres. La función y configuración de cada uno de los elementos que forman la arquitectura es la siguiente,
 
 * **FW**, es un cortafuegos y únicamente permite cierto tráfico, el resto queda bloqueado. 
 * **LB**, es el balanceador de carga *Crossroads* que balancea el tráfico entre los servidores utilizando el algoritmo round-robin. También realiza un mapeo del puerto 3000 donde corre la aplicación al puerto 80.
@@ -47,7 +49,7 @@ La solución que se ha implementado proporciona una **alta disponibilidad**, y e
 Además del escenario original, podemos encontrar una nueva **red de gestión**, desde la cual se puede gestionar y monitorizar todo el sistema.
 
 * **GES**, servidor de gestión al cual nos podemos conectar mediante ssh desde fuera del firewall. Unicamente nos podemos conectar utilizando una clave RSA, el acceso por contraseña queda bloqueado.
-* **Nagios**, servidor que corre [Nagios](https://www.nagios.org/), una herramienta de monitorización *open source* que permite monitorizar los equipos y sus servicios de forma remota con un navegador web. La direccion web para conectarmos al servidor es `10.1.5.52/nagios`. El usuario y contraseña que se establecen por defecto son `nagiosadmin` y `xxxx`.
+* **Nagios**, servidor que corre [Nagios](https://www.nagios.org/), una herramienta de monitorización *open source* que permite monitorizar los equipos y sus servicios de forma remota con un navegador web. Para ello, se utiliza el plugin [NRPE](https://github.com/NagiosEnterprises/nrpe) que se instala en el resto de contenedores y permiten que el servidor central de Nagios monitorice cada uno de ellos. La direccion web para conectarmos al servidor es `10.1.5.52/nagios`. El usuario y contraseña que se establecen por defecto son `nagiosadmin` y `xxxx`.
 
 ### Firewall
 
@@ -59,7 +61,7 @@ El firewall únicamente va a permitir el tráfico necesario, además del que se 
 
 > Con el fin de poder ver el balanceo de tráfico, está habilitado el acceso al puerto 8001 del balanceador. En un escenario real, esta regla tendría que ser eliminada.
 
-Para comprobar el funcionamiento del firewall se puede realizar un escaneo de puertos como el que podemos ver en la siguiente [imagen](docs/nmap.png). A continuación se incluye una salida del comando.
+Para comprobar el funcionamiento del firewall se puede realizar un escaneo de puertos como el que podemos ver en la siguiente [imagen](docs/nmap.png). A continuación se incluye la salida del comando.
 
 ```shell
 [*] exec: nmap 10.1.0.0/16
@@ -102,7 +104,18 @@ PORT   STATE SERVICE
 Nmap done: 65536 IP addresses (5 hosts up) scanned in 2560.20 seconds
 ```
 
-Del escaneo de puertos, podemos comprobar que el balanceador de tráfico tiene abiertos los puertos 80 y 8001, tal y como hemos definido en las reglas del firewall. El servidor Nagios también tiene abierto el puerto 80. Los otros tres hosts que aparecen, son el host y los clientes C1 y C2.
+Del escaneo de puertos, podemos comprobar que el balanceador de tráfico tiene abiertos los puertos 80 y 8001, tal y como hemos definido en las reglas del firewall. El servidor Nagios también tiene abierto el puerto 80. Los otros tres hosts que aparecen, son el propio host y los clientes C1 y C2.
+
+### Balanceador de carga
+
+Para configurar el balanceador una vez operativo se pueden seguir varias opciones para redirigir al mismo cliente al mismo servidor en una conexión, y así que las cookies se mantengan sobre el mismo servidor:
+
+* Se puede declarar el servidor como HTTP en lugar de como TCP y activar la opción *sticky*. Sin embargo, la opción HTTP no está recomendada, ya que el servidor es más eficiente cuando puede manejar también más peticiones de tipo TCP, que sólo HTTP. Cuando el balanceador está en modo HTTP, necesita ejecutar más procesos y el balanceo de tráfico no es óptimo.
+* Se puede cambiar el algoritmo de balanceo, aunque para esto hay que relanzar el proceso:
+  * Se puede utilizar el algoritmo *lax-hashed-ip* que calcula el *hash* de una IP y la asigna a un servidor del backend, de forma que una misma IP siempre será atendida por el mismo servidor.
+  * Se puede utilizar el algoritmo *lax-stored-ip* que cuando un cliente se conecta por primera vez, lo almacena en memoria y le redirige al mismo servidor todo el tiempo hasta que el cliente deje de conectarse durante un tiempo *timeout*. Este algoritmo es menos eficiente que el anterior, ya que requiere de almacenamiento en memoria.
+
+Sin embargo, la mejor opción es que los servidores compartan entre sí las cookies y aunque cambies de servidor, éstas sean reconocidas por el nuevo. Con está última opción, el balanceador de carga podría funcionar en TCP y se podría elegir cualquier tipo de algoritmo.
 
 ## Docker
 
@@ -118,9 +131,9 @@ En este caso, se han reducido el número de contenedores en comparación con el 
 * **S1, S2 y S3**, es el servicio en que se aloja la aplicación web CRM. Esta está alojada en el puerto 3000, y es el balanceador de carga el que se encarga de hacer un mapeo del puerto 80 al 3000.
 * **BBDD**, es el servicio en que se aloja la base de datos, y utiliza la imagen de Postgres para ello. Para la conexión de la base de datos, se utiliza la siguiente URL, `postgres://crm:xxxx@10.1.4.31:5432/crm`.
 * **NAS**, son los servidores de almacenamiento. La información está replicada entre los tres servidores, de forma que se puede leer y escribir en cualquiera de ellos.
-* **Nagios**, se encarga de la monitorización de todo el escenario. Para ello, se utiliza el plugin NRPE que se instala en el resto de contenedores y permiten que el servidor central de Nagios monitorice cada uno de ellos. Además, se ha configurado un cortafuegos en el propio contenedor que sólo permite el acceso al puerto 80 mediante tcp y al puerto 5666 para el funcionamiento del plugin nrpe.
+* **Nagios**, se encarga de la monitorización de todo el escenario. Para ello, se utiliza el plugin NRPE que se instala en el resto de contenedores y permiten que el servidor central de Nagios monitorice cada uno de ellos. Además, se ha configurado un cortafuegos en el propio contenedor que sólo permite el acceso al puerto 80 mediante tcp y al puerto 5666 para el funcionamiento del plugin NRPE.
 
-Para desplegar el escenario, únicamente necesitamos un equipo que tenga Docker y Docker Compose instalados. Una vez instalados y clonado el repositorio, ejecutamos desde el directorio principal del repositorio:
+Para desplegar el escenario, únicamente necesitamos un equipo que tenga Docker y Docker Compose instalados. Una vez instalados y clonado el repositorio, ejecutamos desde el directorio principal el siguiente comando:
 
 ```shell
 docker-compose up --build
@@ -140,11 +153,7 @@ Una vez terminado de ejecutar el comando anterior, ya podemos acceder a la aplic
 
 La última versión del escenario está disponible en el siguiente [enlace](https://github.com/tasiomendez/cdps-crm/releases).
 
-1. **Si utiliza ordenador propio con VirtualBox**
-
-    * Descargue la máquina virtual a su ordenador desde este [enlace](http://idefix.dit.upm.es/cdps/CDPS2017-v1.ova), e impórtela a VirtualBox y arranquela.
-
-    * Accede a un terminal de la máquina virtual y descargue y descomprima el escenario.
+1. **Si utiliza ordenador propio con VirtualBox**, descargue la máquina virtual a su ordenador desde este [enlace](http://idefix.dit.upm.es/cdps/CDPS2017-v1.ova), e impórtela a VirtualBox y arranquela. Una vez importada, accede a un terminal de la máquina virtual y descargue y descomprima el escenario mediante:
 
 ```shell
 wget https://github.com/tasiomendez/cdps-crm/releases/download/v1.0.1/pfinal.tgz
@@ -152,7 +161,7 @@ sudo vnx --unpack pfinal.tgz && cd pfinal
 bin/prepare-pfinal-vm
 ```
 
-2. **Si utiliza ordenador propio con Linux y VNX**, accede a un terminal del PC y descargue el escenario y descomprímalo mediante:
+2. **Si utiliza ordenador propio con Linux y VNX**, accede a un terminal, descargue el escenario y descomprímalo mediante:
 
 ```shell
 wget https://github.com/tasiomendez/cdps-crm/releases/download/v1.0.1/pfinal.tgz
@@ -185,7 +194,7 @@ A continuación, tenemos una breve explicación de las opciones disponibles.
 * `--remove-server`. Elimina un servidor que haya sido añadido anteriormente.
 * `--no-console`. Se puede usar con `--create` o `--add-server`. Al arrancar el escenario no se muestran las consolas de todas las máquinas virtuales. Opcional.
 
-Para destruir el escenario, tenemos que utilizar el archivo del escenario principal. El script eliminará los servidores que se han añadido posteriormente de forma automática.
+Para destruir el escenario, tenemos que utilizar el archivo del escenario principal. El propio script almacena los servidores que han sido añadidos en un archivo externo y los eliminará forma automática.
 
 ### Añadir un servidor
 
@@ -221,6 +230,18 @@ Si esto ultimo nos da error, entonces se debe a que la clave no es conocida por 
 ssh-add ~/.ssh/ges_rsa
 ssh root@ges
 ```
+
+## Despliegue en la nube
+
+Este mismo escenario puede ser desplegado en la nube, utilizando varios servicios existentes como pueden ser [Amazon Web Services](https://aws.amazon.com/), [OpenStack](https://www.openstack.org/) o [Google Cloud](https://cloud.google.com/).
+
+Para desplegar el escenario en esos servicios podemos utilizar este escenario y hacerlo sólo en una máquina virtual. Sin embargo esto no es eficiente, ya que los servicios anteriormente nombrados nos ofrecen otras opciones que pueden llegar a ser una mejor solución.
+
+En Amazon Web Services (AWS) tenemos la posibilidad de adquirir ciertos productos que nos hacen la función del firewall o del balanceador de tráfico como pueden ser AWS WAF (Web Application Firewall) o Elastic Load Balancing. Además nos ofrecen sistemas de almacenamiento dinámicos, así como escalabilidad en el número de instancias que queremos ejecutándose en un momento dado. De esta forma, tendríamos que desplegar la aplicación utilizando sus servicios de computación EC2 y preocuparnos de adquirir el resto de servicios necesarios de todos los productos disponibles, así como realizar las conexiones oportunas entre ellos. 
+
+En OpenStack, al igual que en AWS, tenemos varios servicios configurables como Swift para el almacenamiento o Trove para la base de datos. Lo más importante es el uso de Nova, que es el motor va a soportar los contenedores LXC. Además, con Horizon tenemos una interfaz gráfica para el acceso, la provisión y la automatización de los recursos basados en la nube.
+
+> En todos ellos tenemos la opción de utilizar Docker en lugar de contenedores LXC, utilizando Amazon Elastic Container Service en AWS, directamente sobre Nova en OpenStack o con Kubernetes Engine en Google Cloud.
 
 ## Autores
 
